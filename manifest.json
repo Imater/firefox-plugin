@@ -1,0 +1,20 @@
+{
+    "manifest_version": 2,
+    "name": "WebDAV Bookmarks",
+    "version": "1.0",
+    "description": "Отображает закладки из WebDAV с авторизацией",
+    "sidebar_action": {
+        "default_title": "WebDAV Bookmarks",
+        "default_panel": "sidebar.html",
+        "default_icon": "icon.png"
+    },
+    "permissions": [
+        "storage",
+        "webRequest",
+        "webRequestBlocking",
+        "https://imater74.keenetic.link/*"
+    ],
+    "icons": {
+        "48": "icon.png"
+    }
+}

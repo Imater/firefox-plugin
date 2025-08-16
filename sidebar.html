@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>WebDAV Bookmarks</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 10px;
+            width: 350px;
+            margin: 0;
+            overflow-y: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        a {
+            display: block;
+            margin: 5px 0;
+            color: #0066cc;
+            text-decoration: none;
+            word-break: break-word;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        #content {
+            white-space: pre-wrap;
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-right: 5px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 5px;
+        }
+
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        button img {
+            width: 16px;
+            height: 16px;
+        }
+
+        .settings-panel {
+            display: none;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .settings-panel input {
+            width: 100%;
+            margin-bottom: 5px;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .settings-panel button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+        }
+
+        .wiki-link {
+            color: #009688;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="controls">
+            <button id="home-btn" title="Home"><img src="home.png" alt="Home"></button>
+            <button id="refresh-btn" title="Refresh"><img src="refresh.png" alt="Refresh"></button>
+            <button id="settings-btn" title="Settings"><img src="user.png" alt="Settings"></button>
+        </div>
+    </div>
+
+    <div id="settings-panel" class="settings-panel">
+        <input type="text" id="url-input" placeholder="WebDAV URL">
+        <input type="text" id="username-input" placeholder="Username">
+        <input type="password" id="password-input" placeholder="Password">
+        <button id="save-settings-btn">Save</button>
+    </div>
+
+    <div id="content"></div>
+
+    <script src="sidebar.js"></script>
+</body>
+
+</html>
