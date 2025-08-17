@@ -3,7 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { createRoot } from 'react-dom/client';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { Box, Button, TextField, Typography, Paper, Switch, FormControlLabel, Breadcrumbs, Link } from '@mui/material';
+import { Box, Button, TextField, Typography, Paper, Switch, FormControlLabel, Breadcrumbs, Link, IconButton } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import SettingsIcon from '@mui/icons-material/Settings';
+import HomeIcon from '@mui/icons-material/Home';
 import { styled } from '@mui/system';
 
 // Создаем светлую и темную темы
@@ -34,12 +37,15 @@ const darkTheme = createTheme({
 });
 
 const ContentBox = styled(Box)(({ theme }) => ({
-  overflowY: 'auto',
-  height: '100%',
   padding: '10px',
   backgroundColor: theme.palette.background.default,
   color: theme.palette.text.primary,
   '& pre': {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    overflowX: 'auto',
+  },
+  '& code': {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
   },
@@ -54,6 +60,10 @@ const ContentBox = styled(Box)(({ theme }) => ({
     color: theme.palette.mode === 'dark' ? '#81c784' : '#009688',
     fontWeight: 'bold',
   },
+  '& *': {
+    maxWidth: '100%',
+    wordWrap: 'break-word',
+  },
 }));
 
 const SettingsPanel = styled(Paper)(({ theme }) => ({
@@ -61,6 +71,15 @@ const SettingsPanel = styled(Paper)(({ theme }) => ({
   marginBottom: '16px',
   backgroundColor: theme.palette.background.paper,
   color: theme.palette.text.primary,
+}));
+
+const TopPanel = styled(Box)(({ theme }) => ({
+  position: 'sticky',
+  top: 0,
+  zIndex: 1000,
+  backgroundColor: theme.palette.background.default,
+  padding: '10px',
+  borderBottom: `1px solid ${theme.palette.mode === 'dark' ? '#333' : '#e0e0e0'}`,
 }));
 
 function App() {
@@ -76,18 +95,37 @@ function App() {
 
   useEffect(() => {
     loadSettings();
-    loadCurrentPage();
     loadTheme();
+    loadCurrentPage();
   }, []);
+
+  useEffect(() => {
+    loadCurrentPage();
+  }, [currentPage]);
 
   const loadTheme = async () => {
     const result = await chrome.storage.local.get(['isDarkMode']);
-    setIsDarkMode(result.isDarkMode || false);
+    const darkMode = result.isDarkMode || false;
+    setIsDarkMode(darkMode);
+    
+    // Устанавливаем фон HTML-элемента при загрузке
+    document.documentElement.style.backgroundColor = darkMode ? '#121212' : '#ffffff';
+    
+    // Скрываем горизонтальный скроллинг
+    document.documentElement.style.overflowX = 'hidden';
+    document.body.style.overflowX = 'hidden';
   };
 
   const saveTheme = async (darkMode) => {
     await chrome.storage.local.set({ isDarkMode: darkMode });
     setIsDarkMode(darkMode);
+    
+    // Обновляем фон HTML-элемента
+    document.documentElement.style.backgroundColor = darkMode ? '#121212' : '#ffffff';
+    
+    // Скрываем горизонтальный скроллинг
+    document.documentElement.style.overflowX = 'hidden';
+    document.body.style.overflowX = 'hidden';
   };
 
   const loadSettings = async () => {
@@ -135,12 +173,10 @@ function App() {
 
   const goHome = () => {
     setCurrentPage('index.md');
-    loadCurrentPage();
   };
 
   const handleWikiLinkClick = (pageName) => {
     setCurrentPage(encodeURIComponent(pageName) + '.md');
-    loadCurrentPage();
   };
 
   const getBreadcrumbs = () => {
@@ -170,7 +206,6 @@ function App() {
 
   const handleBreadcrumbClick = (path) => {
     setCurrentPage(path);
-    loadCurrentPage();
   };
 
   const renderMarkdown = () => {
@@ -190,113 +225,102 @@ function App() {
     return { __html: marked.parse(withWikiLinks, { renderer }) };
   };
 
-  return (
+    return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
-      <Box sx={{ 
-        padding: '10px', 
-        height: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column',
-        backgroundColor: isDarkMode ? '#121212' : '#ffffff',
-        color: isDarkMode ? '#ffffff' : '#000000'
-      }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <Button onClick={loadCurrentPage} sx={{ minWidth: 'auto' }}>
-            <img src="refresh.png" alt="Refresh" width="16" height="16" />
-          </Button>
-          <Button onClick={() => setShowSettings(!showSettings)} sx={{ minWidth: 'auto' }}>
-            <img src="user.png" alt="Settings" width="16" height="16" />
-          </Button>
-        </Box>
+             <Box sx={{ 
+         backgroundColor: isDarkMode ? '#121212' : '#ffffff',
+         color: isDarkMode ? '#ffffff' : '#000000',
+         minHeight: '100vh',
+         overflowX: 'hidden'
+       }}>
+        <TopPanel>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <IconButton onClick={loadCurrentPage} size="small">
+              <RefreshIcon />
+            </IconButton>
+            <IconButton onClick={() => setShowSettings(!showSettings)} size="small">
+              <SettingsIcon />
+            </IconButton>
+          </Box>
 
-        <Breadcrumbs 
-          aria-label="breadcrumb" 
-          sx={{ 
-            marginBottom: '16px',
-            '& .MuiBreadcrumbs-separator': {
-              color: isDarkMode ? '#ffffff' : '#000000'
-            }
-          }}
-        >
-          {getBreadcrumbs().map((crumb, index) => (
-            <Link
-              key={index}
-              color={index === getBreadcrumbs().length - 1 ? 'text.primary' : 'inherit'}
-              underline="hover"
-              onClick={() => handleBreadcrumbClick(crumb.path)}
-              sx={{ 
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                '&:first-child': {
-                  '&::before': {
-                    content: '""',
-                    display: 'inline-block',
-                    width: '16px',
-                    height: '16px',
-                    backgroundImage: 'url("home.png")',
-                    backgroundSize: 'contain',
-                    backgroundRepeat: 'no-repeat',
-                    marginRight: '4px'
-                  }
-                }
-              }}
-            >
-              {crumb.name}
-            </Link>
-          ))}
-        </Breadcrumbs>
-
-        {showSettings && (
-          <SettingsPanel elevation={3}>
-            <Typography variant="h6" gutterBottom>
-              Настройки
-            </Typography>
-            
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={isDarkMode}
-                  onChange={(e) => saveTheme(e.target.checked)}
-                  color="primary"
-                />
+          <Breadcrumbs 
+            aria-label="breadcrumb" 
+            sx={{ 
+              marginBottom: '16px',
+              '& .MuiBreadcrumbs-separator': {
+                color: isDarkMode ? '#ffffff' : '#000000'
               }
-              label="Темная тема"
-              sx={{ marginBottom: '16px' }}
-            />
-            
-            <TextField
-              label="WebDAV URL"
-              value={settings.webdavUrl}
-              onChange={(e) => setSettings({...settings, webdavUrl: e.target.value})}
-              fullWidth
-              margin="dense"
-            />
-            <TextField
-              label="Username"
-              value={settings.username}
-              onChange={(e) => setSettings({...settings, username: e.target.value})}
-              fullWidth
-              margin="dense"
-            />
-            <TextField
-              label="Password"
-              type="password"
-              value={settings.password}
-              onChange={(e) => setSettings({...settings, password: e.target.value})}
-              fullWidth
-              margin="dense"
-            />
-            <Button 
-              onClick={saveSettings} 
-              variant="contained" 
-              color="primary"
-              sx={{ marginTop: '8px' }}
-            >
-              Save
-            </Button>
-          </SettingsPanel>
-        )}
+            }}
+          >
+            {getBreadcrumbs().map((crumb, index) => (
+              <Link
+                key={index}
+                color={index === getBreadcrumbs().length - 1 ? 'text.primary' : 'inherit'}
+                underline="hover"
+                onClick={() => handleBreadcrumbClick(crumb.path)}
+                sx={{ 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}
+              >
+                {index === 0 && <HomeIcon sx={{ fontSize: 16, marginRight: '4px' }} />}
+                {crumb.name}
+              </Link>
+            ))}
+          </Breadcrumbs>
+
+          {showSettings && (
+            <SettingsPanel elevation={3}>
+              <Typography variant="h6" gutterBottom>
+                Настройки
+              </Typography>
+              
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isDarkMode}
+                    onChange={(e) => saveTheme(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label="Темная тема"
+                sx={{ marginBottom: '16px' }}
+              />
+              
+              <TextField
+                label="WebDAV URL"
+                value={settings.webdavUrl}
+                onChange={(e) => setSettings({...settings, webdavUrl: e.target.value})}
+                fullWidth
+                margin="dense"
+              />
+              <TextField
+                label="Username"
+                value={settings.username}
+                onChange={(e) => setSettings({...settings, username: e.target.value})}
+                fullWidth
+                margin="dense"
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={settings.password}
+                onChange={(e) => setSettings({...settings, password: e.target.value})}
+                fullWidth
+                margin="dense"
+              />
+              <Button 
+                onClick={saveSettings} 
+                variant="contained" 
+                color="primary"
+                sx={{ marginTop: '8px' }}
+              >
+                Save
+              </Button>
+            </SettingsPanel>
+          )}
+        </TopPanel>
 
         <ContentBox>
           <div 
