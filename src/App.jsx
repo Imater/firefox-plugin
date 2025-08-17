@@ -182,7 +182,7 @@ function App() {
     // Process wiki links first
     const withWikiLinks = content.replace(
       /\[\[([^\]]+)\]\]/g,
-      (match, p1) => `<a href="#" class="wiki-link">${p1}</a>`
+      (match, p1) => `<a href="#" class="wiki-link" data-page="${p1}">${p1}</a>`
     );
 
     // Then render markdown with custom renderer
@@ -303,7 +303,11 @@ function App() {
             onClick={(e) => {
               if (e.target.classList.contains('wiki-link')) {
                 e.preventDefault();
-                handleWikiLinkClick(e.target.textContent);
+                e.stopPropagation();
+                const pageName = e.target.getAttribute('data-page');
+                if (pageName) {
+                  handleWikiLinkClick(pageName);
+                }
               }
             }}
           />
@@ -313,13 +317,7 @@ function App() {
   );
 };
 
-// Expose function to window for inline event handlers
-window.handleWikiLinkClick = (pageName) => {
-  const root = createRoot(document.getElementById('root'));
-  root.render(<App />);
-  const app = root._internalRoot.current.child.stateNode;
-  app.handleWikiLinkClick(pageName);
-};
+
 
 const root = createRoot(document.getElementById('root'));
 root.render(<App />);
