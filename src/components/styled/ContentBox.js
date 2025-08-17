@@ -1,0 +1,34 @@
+import { Box } from '@mui/material';
+import { styled } from '@mui/system';
+
+const ContentBox = styled(Box)(({ theme }) => ({
+  padding: '10px',
+  backgroundColor: theme.palette.background.default,
+  color: theme.palette.text.primary,
+  '& pre': {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+    overflowX: 'auto',
+  },
+  '& code': {
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
+  '& a': {
+    color: theme.palette.mode === 'dark' ? '#64b5f6' : '#0066cc',
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+  '& .wiki-link': {
+    color: theme.palette.mode === 'dark' ? '#81c784' : '#009688',
+    fontWeight: 'bold',
+  },
+  '& *': {
+    maxWidth: '100%',
+    wordWrap: 'break-word',
+  },
+}));
+
+export default ContentBox;
