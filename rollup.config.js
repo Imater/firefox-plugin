@@ -61,13 +61,15 @@ export default {
       targets: [
         { src: 'src/*.html', dest: 'dist' },
         { src: 'src/*.png', dest: 'dist' },
-        { src: 'manifest.json', dest: 'dist' }
+        { src: 'manifest.json', dest: 'dist' },
+        { src: 'public/index.html', dest: 'dist' }
       ]
     }),
     !isProduction && serve({
       contentBase: 'dist',
       port: 3000,
-      open: true
+      open: true,
+      host: 'localhost'
     }),
     isProduction && terser()
   ],

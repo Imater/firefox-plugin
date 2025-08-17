@@ -5,6 +5,7 @@
     "main": "dist/index.js",
     "scripts": {
         "start": "rollup -c -w",
+        "dev": "rollup -c --watch",
         "build": "rollup -c",
         "prepare": "npm run build"
     },

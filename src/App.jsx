@@ -1,3 +1,5 @@
+import './chrome-mock';
+import './file-mock';
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { createRoot } from 'react-dom/client';
