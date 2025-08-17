@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { Box, Button, TextField, Typography, Paper, Switch, FormControlLabel } from '@mui/material';
+import { Box, Button, TextField, Typography, Paper, Switch, FormControlLabel, Breadcrumbs, Link } from '@mui/material';
 import { styled } from '@mui/system';
 
 // Создаем светлую и темную темы
@@ -142,6 +142,36 @@ function App() {
     loadCurrentPage();
   };
 
+  const getBreadcrumbs = () => {
+    if (currentPage === 'index.md') {
+      return [{ name: 'Главная', path: 'index.md' }];
+    }
+
+    // Убираем .md и декодируем имя файла
+    const pageName = decodeURIComponent(currentPage.replace('.md', ''));
+    
+    // Разбиваем путь по разделителям (/, \, -)
+    const pathParts = pageName.split(/[\/\\-]/).filter(part => part.trim() !== '');
+    
+    const breadcrumbs = [{ name: 'Главная', path: 'index.md' }];
+    
+    let currentPath = '';
+    pathParts.forEach((part, index) => {
+      currentPath += (currentPath ? '/' : '') + part;
+      breadcrumbs.push({
+        name: part,
+        path: encodeURIComponent(currentPath) + '.md'
+      });
+    });
+    
+    return breadcrumbs;
+  };
+
+  const handleBreadcrumbClick = (path) => {
+    setCurrentPage(path);
+    loadCurrentPage();
+  };
+
   const renderMarkdown = () => {
     // Настраиваем marked для добавления target="_blank" к ссылкам
     const renderer = new marked.Renderer();
@@ -169,19 +199,52 @@ function App() {
         backgroundColor: isDarkMode ? '#121212' : '#ffffff',
         color: isDarkMode ? '#ffffff' : '#000000'
       }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <Box>
-            <Button onClick={goHome} disabled={currentPage === 'index.md'} sx={{ minWidth: 'auto' }}>
-              <img src="home.png" alt="Home" width="16" height="16" />
-            </Button>
-            <Button onClick={loadCurrentPage} sx={{ minWidth: 'auto', marginLeft: '8px' }}>
-              <img src="refresh.png" alt="Refresh" width="16" height="16" />
-            </Button>
-          </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <Button onClick={loadCurrentPage} sx={{ minWidth: 'auto' }}>
+            <img src="refresh.png" alt="Refresh" width="16" height="16" />
+          </Button>
           <Button onClick={() => setShowSettings(!showSettings)} sx={{ minWidth: 'auto' }}>
             <img src="user.png" alt="Settings" width="16" height="16" />
           </Button>
         </Box>
+
+        <Breadcrumbs 
+          aria-label="breadcrumb" 
+          sx={{ 
+            marginBottom: '16px',
+            '& .MuiBreadcrumbs-separator': {
+              color: isDarkMode ? '#ffffff' : '#000000'
+            }
+          }}
+        >
+          {getBreadcrumbs().map((crumb, index) => (
+            <Link
+              key={index}
+              color={index === getBreadcrumbs().length - 1 ? 'text.primary' : 'inherit'}
+              underline="hover"
+              onClick={() => handleBreadcrumbClick(crumb.path)}
+              sx={{ 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                '&:first-child': {
+                  '&::before': {
+                    content: '""',
+                    display: 'inline-block',
+                    width: '16px',
+                    height: '16px',
+                    backgroundImage: 'url("home.png")',
+                    backgroundSize: 'contain',
+                    backgroundRepeat: 'no-repeat',
+                    marginRight: '4px'
+                  }
+                }
+              }}
+            >
+              {crumb.name}
+            </Link>
+          ))}
+        </Breadcrumbs>
 
         {showSettings && (
           <SettingsPanel elevation={3}>
@@ -252,13 +315,13 @@ function App() {
 
 // Expose function to window for inline event handlers
 window.handleWikiLinkClick = (pageName) => {
-  const root = ReactDOM.createRoot(document.getElementById('root'));
+  const root = createRoot(document.getElementById('root'));
   root.render(<App />);
   const app = root._internalRoot.current.child.stateNode;
   app.handleWikiLinkClick(pageName);
 };
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const root = createRoot(document.getElementById('root'));
 root.render(<App />);
 
 export default App;
