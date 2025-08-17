@@ -2,43 +2,73 @@ import React, { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import ReactDOM from 'react-dom';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import { Box, Button, TextField, Typography, Paper } from '@mui/material';
+import { Box, Button, TextField, Typography, Paper, Switch, FormControlLabel } from '@mui/material';
 import { styled } from '@mui/system';
 
-const theme = createTheme();
+// Создаем светлую и темную темы
+const lightTheme = createTheme({
+  palette: {
+    mode: 'light',
+    background: {
+      default: '#ffffff',
+      paper: '#f5f5f5',
+    },
+    text: {
+      primary: '#000000',
+    },
+  },
+});
 
-const ContentBox = styled(Box)({
+const darkTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    background: {
+      default: '#121212',
+      paper: '#1e1e1e',
+    },
+    text: {
+      primary: '#ffffff',
+    },
+  },
+});
+
+const ContentBox = styled(Box)(({ theme }) => ({
   overflowY: 'auto',
   height: '100%',
   padding: '10px',
+  backgroundColor: theme.palette.background.default,
+  color: theme.palette.text.primary,
   '& pre': {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
   },
   '& a': {
-    color: '#0066cc',
+    color: theme.palette.mode === 'dark' ? '#64b5f6' : '#0066cc',
     textDecoration: 'none',
     '&:hover': {
       textDecoration: 'underline',
     },
   },
   '& .wiki-link': {
-    color: '#009688',
+    color: theme.palette.mode === 'dark' ? '#81c784' : '#009688',
     fontWeight: 'bold',
   },
-});
+}));
 
-const SettingsPanel = styled(Paper)({
+const SettingsPanel = styled(Paper)(({ theme }) => ({
   padding: '16px',
   marginBottom: '16px',
-});
+  backgroundColor: theme.palette.background.paper,
+  color: theme.palette.text.primary,
+}));
 
 function App() {
   const [content, setContent] = useState('');
   const [currentPage, setCurrentPage] = useState('index.md');
   const [showSettings, setShowSettings] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [settings, setSettings] = useState({
-    webdavUrl: 'https://imater74.keenetic.link/webdav/imater-2024-2/bookmarks/',
+    webdavUrl: 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks',
     username: '',
     password: '',
   });
@@ -46,12 +76,23 @@ function App() {
   useEffect(() => {
     loadSettings();
     loadCurrentPage();
+    loadTheme();
   }, []);
+
+  const loadTheme = async () => {
+    const result = await chrome.storage.local.get(['isDarkMode']);
+    setIsDarkMode(result.isDarkMode || false);
+  };
+
+  const saveTheme = async (darkMode) => {
+    await chrome.storage.local.set({ isDarkMode: darkMode });
+    setIsDarkMode(darkMode);
+  };
 
   const loadSettings = async () => {
     const result = await chrome.storage.local.get(['webdavUrl', 'username', 'password']);
     setSettings({
-      webdavUrl: result.webdavUrl || 'https://imater74.keenetic.link/webdav/imater-2024-2/bookmarks/',
+      webdavUrl: result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks',
       username: result.username || '',
       password: result.password || '',
     });
@@ -71,11 +112,11 @@ function App() {
   const loadCurrentPage = async () => {
     try {
       const result = await chrome.storage.local.get(['webdavUrl', 'username', 'password']);
-      const baseUrl = result.webdavUrl || 'https://imater74.keenetic.link/webdav/imater-2024-2/bookmarks/';
-      const url = baseUrl + currentPage;
+      const baseUrl = result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks';
+      const url = baseUrl + '/' + currentPage;
       
       const response = await fetch(url, {
-        headers: {
+        headers: url.startsWith('file://') ? {} : {
           'Authorization': 'Basic ' + btoa(
             (result.username || '') + ':' + (result.password || '')
           )
@@ -102,19 +143,32 @@ function App() {
   };
 
   const renderMarkdown = () => {
+    // Настраиваем marked для добавления target="_blank" к ссылкам
+    const renderer = new marked.Renderer();
+    renderer.link = (href, title, text) => {
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    };
+
     // Process wiki links first
     const withWikiLinks = content.replace(
-      /\[\[([^\]]+)\]\]/g, 
-      (match, p1) => `<a href="#" class="wiki-link" onclick="event.preventDefault(); window.handleWikiLinkClick('${p1}')">${p1}</a>`
+      /\[\[([^\]]+)\]\]/g,
+      (match, p1) => `<a href="#" class="wiki-link">${p1}</a>`
     );
-    
-    // Then render markdown
-    return { __html: marked(withWikiLinks) };
+
+    // Then render markdown with custom renderer
+    return { __html: marked.parse(withWikiLinks, { renderer }) };
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <Box sx={{ padding: '10px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
+      <Box sx={{ 
+        padding: '10px', 
+        height: '100vh', 
+        display: 'flex', 
+        flexDirection: 'column',
+        backgroundColor: isDarkMode ? '#121212' : '#ffffff',
+        color: isDarkMode ? '#ffffff' : '#000000'
+      }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
           <Box>
             <Button onClick={goHome} disabled={currentPage === 'index.md'} sx={{ minWidth: 'auto' }}>
@@ -131,6 +185,22 @@ function App() {
 
         {showSettings && (
           <SettingsPanel elevation={3}>
+            <Typography variant="h6" gutterBottom>
+              Настройки
+            </Typography>
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={isDarkMode}
+                  onChange={(e) => saveTheme(e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="Темная тема"
+              sx={{ marginBottom: '16px' }}
+            />
+            
             <TextField
               label="WebDAV URL"
               value={settings.webdavUrl}

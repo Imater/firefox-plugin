@@ -18,6 +18,7 @@
         "tabs"
     ],
     "host_permissions": [
-        "https://imater74.keenetic.link/*"
+        "https://imater74.keenetic.link/*",
+        "file://*/*"
     ]
 }

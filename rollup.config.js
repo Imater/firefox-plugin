@@ -71,4 +71,11 @@ export default {
     }),
     isProduction && terser()
   ],
+  onwarn(warning, warn) {
+    // Игнорируем предупреждения о 'use client'
+    if (warning.code === 'MODULE_LEVEL_DIRECTIVE' && warning.message.includes('use client')) {
+      return;
+    }
+    warn(warning);
+  },
 };
