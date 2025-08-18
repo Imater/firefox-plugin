@@ -24,75 +24,34 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
       <Divider sx={{ marginY: '16px' }} />
       
       <Typography variant="subtitle1" gutterBottom>
-        Метод получения заметок
+        API настройки
       </Typography>
       
-      <FormControlLabel
-        control={
-          <Switch
-            checked={settings.useApi}
-            onChange={(e) => setSettings({...settings, useApi: e.target.checked})}
-            color="primary"
-          />
-        }
-        label="Использовать API вместо WebDAV"
-        sx={{ marginBottom: '16px' }}
+      <TextField
+        label="API URL"
+        value={settings.apiUrl}
+        onChange={(e) => setSettings({...settings, apiUrl: e.target.value})}
+        fullWidth
+        margin="dense"
+        helperText="Базовый URL для API (например: http://127.0.0.1:27123/vault)"
       />
-
-      {settings.useApi ? (
-        <>
-          <TextField
-            label="API URL"
-            value={settings.apiUrl}
-            onChange={(e) => setSettings({...settings, apiUrl: e.target.value})}
-            fullWidth
-            margin="dense"
-            helperText="Базовый URL для API (например: http://127.0.0.1:27123/vault)"
-          />
-          <TextField
-            label="API Key"
-            type="password"
-            value={settings.apiKey}
-            onChange={(e) => setSettings({...settings, apiKey: e.target.value})}
-            fullWidth
-            margin="dense"
-            helperText="Bearer токен для авторизации"
-          />
-          <TextField
-            label="Periodic Notes API URL"
-            value={settings.periodicApiUrl}
-            onChange={(e) => setSettings({...settings, periodicApiUrl: e.target.value})}
-            fullWidth
-            margin="dense"
-            helperText="URL для Periodic Notes API (например: http://127.0.0.1:27124)"
-          />
-        </>
-      ) : (
-        <>
-          <TextField
-            label="WebDAV URL"
-            value={settings.webdavUrl}
-            onChange={(e) => setSettings({...settings, webdavUrl: e.target.value})}
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            label="Username"
-            value={settings.username}
-            onChange={(e) => setSettings({...settings, username: e.target.value})}
-            fullWidth
-            margin="dense"
-          />
-          <TextField
-            label="Password"
-            type="password"
-            value={settings.password}
-            onChange={(e) => setSettings({...settings, password: e.target.value})}
-            fullWidth
-            margin="dense"
-          />
-        </>
-      )}
+      <TextField
+        label="API Key"
+        type="password"
+        value={settings.apiKey}
+        onChange={(e) => setSettings({...settings, apiKey: e.target.value})}
+        fullWidth
+        margin="dense"
+        helperText="Bearer токен для авторизации"
+      />
+      <TextField
+        label="Periodic Notes API URL"
+        value={settings.periodicApiUrl}
+        onChange={(e) => setSettings({...settings, periodicApiUrl: e.target.value})}
+        fullWidth
+        margin="dense"
+        helperText="URL для Periodic Notes API (например: http://127.0.0.1:27124)"
+      />
 
       <TextField
         label="Время обновления вкладок (минуты)"

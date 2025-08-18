@@ -155,6 +155,8 @@ const ContentContainer = styled(Box)(({ theme }) => ({
     borderRadius: '999px',
     border: '1px solid #bdbdbd',
     opacity: 0.9,
+    position: 'relative',
+    top: '-1px', // Поднимаем на 1px выше
   },
 }));
 

@@ -139,8 +139,8 @@ function showBookmarkDialog(defaultTitle, url) {
     chrome.windows.create({
       url: chrome.runtime.getURL('popup.html'),
       type: 'popup',
-      width: 400,
-      height: 350,
+      width: 500,
+      height: 500,
       focused: true
     }, (popupWindow) => {
       // Сохраняем данные в storage для передачи в popup

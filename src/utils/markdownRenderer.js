@@ -26,19 +26,36 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0) => 
   if (showHotkeys) {
     const digits = '123456789'; // 0 зарезервирован для домика
     const letters = 'abcdefghijklmnopqrstuvwxyz';
-    const baseSymbols = digits + letters; // сначала цифры, затем буквы
     let hotkeyIndex = startIndex;
 
-    // Функция для генерации уникального символа (последовательность сверху вниз)
+    // Функция для генерации уникального символа без конфликтов
     const getUniqueSymbol = (index) => {
-      if (index < baseSymbols.length) {
-        return baseSymbols[index];
+      // Сначала используем цифры
+      if (index < digits.length) {
+        return digits[index];
       }
-      // После исчерпания — генерируем пары из букв (aa, ab, ..., zz)
-      const n = index - baseSymbols.length;
-      const firstIndex = Math.floor(n / 26) % 26;
-      const secondIndex = n % 26;
-      return letters[firstIndex] + letters[secondIndex];
+      
+      // Затем используем буквы, но пропускаем те, которые могут конфликтовать с двойными
+      const letterIndex = index - digits.length;
+      if (letterIndex < letters.length) {
+        return letters[letterIndex];
+      }
+      
+      // После исчерпания одинарных символов — генерируем двойные
+      // Используем только те буквы, которые не были использованы как одинарные
+      const doubleIndex = letterIndex - letters.length;
+      const availableLetters = letters.slice(letters.length - 10); // Используем только последние 10 букв для двойных
+      const firstIndex = Math.floor(doubleIndex / availableLetters.length);
+      const secondIndex = doubleIndex % availableLetters.length;
+      
+      if (firstIndex < availableLetters.length) {
+        return availableLetters[firstIndex] + availableLetters[secondIndex];
+      }
+      
+      // Если и это исчерпано — используем трехсимвольные
+      const tripleIndex = doubleIndex - (availableLetters.length * availableLetters.length);
+      const thirdIndex = tripleIndex % availableLetters.length;
+      return availableLetters[0] + availableLetters[1] + availableLetters[thirdIndex];
     };
     
     // Добавляем символы к wiki-ссылкам

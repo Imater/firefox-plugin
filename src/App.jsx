@@ -101,7 +101,21 @@ function App() {
       if (message?.type === 'hotkeys') {
         console.log('Обрабатываем сообщение hotkeys:', message.action);
         if (message.action === 'activate' && typeof message.key === 'string') {
-          const key = String(message.key).toLowerCase();
+          let key = String(message.key).toLowerCase();
+          
+          // Преобразуем русские буквы в английские
+          const russianToEnglishMap = {
+            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 'c', 'т': 't', 'у': 'u',
+            'ф': 'f', 'х': 'h', 'ц': 'c', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+            'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+          };
+          
+          if (russianToEnglishMap[key]) {
+            key = russianToEnglishMap[key];
+          }
+          
           const elements = document.querySelectorAll('[data-hotkey]');
           for (const element of elements) {
             if (element.getAttribute('data-hotkey') === key) {
@@ -125,68 +139,139 @@ function App() {
 
 
 
-  // Обработка нажатия горячих клавиш (внутри панели)
-  useEffect(() => {
-    let buffer = '';
-    let bufferTimeoutId = null;
-
-    const resetBuffer = () => {
-      buffer = '';
-      if (bufferTimeoutId) {
-        clearTimeout(bufferTimeoutId);
-        bufferTimeoutId = null;
-      }
-    };
-
-    const handleHotkeyPress = (e) => {
-      if (isEditing || isDailyNotesEditing) return; // Не обрабатываем горячие клавиши в режиме редактирования
+         // Обработка нажатия горячих клавиш (внутри панели)
+       useEffect(() => {
+         const hotkeyBufferRef = { current: '' };
+         const hotkeyTimerRef = { current: null };
+     
+         // Маппинг русских букв на английские
+         const russianToEnglishMap = {
+           'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+           'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+           'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 'c', 'т': 't', 'у': 'u',
+           'ф': 'f', 'х': 'h', 'ц': 'c', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+           'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+         };
+     
+         const resetBuffer = () => {
+           hotkeyBufferRef.current = '';
+           if (hotkeyTimerRef.current) {
+             clearTimeout(hotkeyTimerRef.current);
+             hotkeyTimerRef.current = null;
+           }
+         };
+     
+         const handleHotkeyPress = (e) => {
+           if (isEditing || isDailyNotesEditing) return; // Не обрабатываем горячие клавиши в режиме редактирования
+           
+           const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target && e.target.tagName) || '') || e.target.isContentEditable;
+           if (isInput) return;
+     
+           let key = e.key.toLowerCase();
+           const originalKey = key;
+           
+           // Преобразуем русские буквы в английские
+           if (russianToEnglishMap[key]) {
+             key = russianToEnglishMap[key];
+             console.log(`Русская буква "${originalKey}" преобразована в "${key}"`);
+           }
       
-      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target && e.target.tagName) || '') || e.target.isContentEditable;
-      if (isInput) return;
-
-      let key = e.key.toLowerCase();
-      
-      // Обработка клавиши 0 для перехода домой
-      if (key === '0') {
-        e.preventDefault();
-        goHome();
-        return;
-      }
+             // Обработка клавиши 0 для перехода домой
+       if (key === '0') {
+         e.preventDefault();
+         goHome();
+         resetBuffer();
+         return;
+       }
+       
+       // Обработка клавиши + для переключения ежедневных заметок
+       if (key === '+' || key === '=') {
+         e.preventDefault();
+         setDailyNotesPanelOpen(prev => !prev);
+         resetBuffer();
+         return;
+       }
       
       // Игнорируем модификаторы
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
       // Принимаем только латиницу и цифры
-      if (!/^[a-z0-9]$/.test(key)) return;
+      if (!/^[a-z0-9]$/.test(key)) {
+        console.log(`Ключ "${key}" (изначально "${originalKey}") не прошел проверку на латиницу/цифры`);
+        return;
+      }
 
-      // Буфер до 2 символов
-      buffer = (buffer + key).slice(-2);
-      if (bufferTimeoutId) clearTimeout(bufferTimeoutId);
-      bufferTimeoutId = setTimeout(resetBuffer, 1000);
+      // Обновляем буфер (до 2 символов), ждём возможное продолжение
+      hotkeyBufferRef.current = (hotkeyBufferRef.current + key).slice(-2);
+      if (hotkeyTimerRef.current) clearTimeout(hotkeyTimerRef.current);
       
       const hotkeyElements = document.querySelectorAll('[data-hotkey]');
+      console.log(`Найдено элементов с горячими клавишами: ${hotkeyElements.length}`);
+
+      const bufferVal = hotkeyBufferRef.current;
+      const elementsArr = Array.from(hotkeyElements);
+      console.log(`Текущий буфер: "${bufferVal}", ищем точное совпадение`);
       
-      // Пытаемся найти полное совпадение с буфером, если нет — пробуем последний символ
-      const tryKeys = [buffer, key];
-      for (const candidate of tryKeys) {
-        const match = Array.from(hotkeyElements).find(el => el.getAttribute('data-hotkey') === candidate);
-        if (match) {
-          e.preventDefault();
-          if (match.classList.contains('wiki-link')) {
-            const pageName = match.getAttribute('data-page');
-            if (pageName) {
-              handleWikiLinkClick(pageName);
-            }
-          } else if (match.classList.contains('external-link')) {
-            const url = match.getAttribute('data-url');
-            if (url) {
-              handleExternalLinkClick(url);
-            }
-          }
-          resetBuffer();
-          break;
+      // Выводим все доступные горячие клавиши для отладки
+      elementsArr.forEach(el => {
+        const hotkey = el.getAttribute('data-hotkey');
+        const text = el.textContent?.trim().substring(0, 20);
+        console.log(`Элемент с горячей клавишей "${hotkey}": "${text}"`);
+      });
+      
+      const exactMatch = elementsArr.find(el => (el.getAttribute('data-hotkey') || '') === bufferVal);
+      console.log(`Точное совпадение найдено: ${exactMatch ? 'ДА' : 'НЕТ'}`);
+      
+      const hasLongerPrefix = elementsArr.some(el => {
+        const hk = el.getAttribute('data-hotkey') || '';
+        return hk.startsWith(bufferVal) && hk.length > bufferVal.length;
+      });
+      console.log(`Есть более длинные префиксы: ${hasLongerPrefix ? 'ДА' : 'НЕТ'}`);
+
+      const triggerElement = (el) => {
+        e.preventDefault();
+        if (el.classList.contains('wiki-link')) {
+          const pageName = el.getAttribute('data-page');
+          if (pageName) handleWikiLinkClick(pageName);
+        } else if (el.classList.contains('external-link')) {
+          const url = el.getAttribute('data-url');
+          if (url) handleExternalLinkClick(url);
         }
+        resetBuffer();
+      };
+
+      // Если точное совпадение и нет более длинного варианта — срабатываем сразу
+      if (exactMatch && (bufferVal.length > 1 || !hasLongerPrefix)) {
+        triggerElement(exactMatch);
+        return;
       }
+
+      // Иначе ждём вторую букву до таймаута, затем решаем
+      hotkeyTimerRef.current = setTimeout(() => {
+        const buf = hotkeyBufferRef.current;
+        console.log(`Таймаут: ищем элемент с горячей клавишей "${buf}"`);
+        const els = Array.from(document.querySelectorAll('[data-hotkey]'));
+        let el = els.find(e2 => (e2.getAttribute('data-hotkey') || '') === buf);
+        if (!el && buf.length >= 1) {
+          // Фоллбек к одиночной первой букве
+          const first = buf[0];
+          console.log(`Фоллбек: ищем элемент с горячей клавишей "${first}"`);
+          el = els.find(e2 => (e2.getAttribute('data-hotkey') || '') === first);
+        }
+        if (el) {
+          console.log(`Найден элемент для активации: ${el.textContent?.trim().substring(0, 20)}`);
+          if (el.classList.contains('wiki-link')) {
+            const pageName = el.getAttribute('data-page');
+            if (pageName) handleWikiLinkClick(pageName);
+          } else if (el.classList.contains('external-link')) {
+            const url = el.getAttribute('data-url');
+            if (url) handleExternalLinkClick(url);
+          }
+        } else {
+          console.log('Элемент для активации не найден');
+        }
+        resetBuffer();
+      }, 700);
     };
 
     if (!isEditing && !isDailyNotesEditing) {
@@ -256,9 +341,9 @@ function App() {
 
   const handleExternalLinkClick = async (url) => {
     try {
-      // Получаем базовый URL из настроек
-      const result = await chrome.storage.local.get(['webdavUrl']);
-      const baseUrl = result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks';
+          // Получаем базовый URL из настроек API
+    const result = await chrome.storage.local.get(['apiUrl']);
+    const baseUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
       
       // Разрешаем URL (преобразуем относительные в абсолютные)
       const resolvedUrl = resolveUrl(baseUrl, url);
@@ -353,9 +438,11 @@ function App() {
 
         <Footer
           isOpen={dailyNotesPanelOpen}
-          onToggle={() => setDailyNotesPanelOpen(!dailyNotesPanelOpen)}
+          onToggle={() => setDailyNotesPanelOpen(prev => !prev)}
           height={settings.dailyNotesPanelHeight}
           noteType={currentNoteType}
+          isEditing={isEditing}
+          isDailyNotesEditing={isDailyNotesEditing}
         />
       </Box>
     </ThemeProvider>

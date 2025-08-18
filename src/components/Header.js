@@ -60,7 +60,7 @@ const Header = ({
           >
             {index === 0 && <HomeIcon sx={{ fontSize: 16, marginRight: '4px' }} />}
             {crumb.name}
-            {index === 0 && !isEditing && !isDailyNotesEditing && <span className="hotkey-symbol" style={{ marginLeft: '4px' }}>0</span>}
+                               {index === 0 && !isEditing && !isDailyNotesEditing && <span className="hotkey-symbol" style={{ marginLeft: '4px' }}>0</span>}
           </Link>
         ))}
       </Breadcrumbs>

@@ -2,58 +2,34 @@ export const loadCurrentPage = async (currentPage) => {
   let result;
   try {
     result = await chrome.storage.local.get([
-      'webdavUrl', 
-      'username', 
-      'password', 
       'useApi', 
       'apiKey', 
       'apiUrl'
     ]);
     
-    // Проверяем, какой метод использовать
-    if (result.useApi) {
-      // API метод
-      const apiUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
-      const url = `${apiUrl}/${currentPage}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'accept': 'application/vnd.olrapi.note+json',
-          'Authorization': `Bearer ${result.apiKey || ''}`
-        }
-      });
-      
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const data = await response.json();
-      
-      // Извлекаем контент из JSON ответа
-      if (data.content) {
-        return data.content;
-      } else {
-        throw new Error('Неверный формат ответа API');
+    // Используем только API метод
+    const apiUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
+    const url = `${apiUrl}/${currentPage}`;
+    
+    const response = await fetch(url, {
+      headers: {
+        'accept': 'application/vnd.olrapi.note+json',
+        'Authorization': `Bearer ${result.apiKey || ''}`
       }
+    });
+    
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    
+    const data = await response.json();
+    
+    // Извлекаем контент из JSON ответа
+    if (data.content) {
+      return data.content;
     } else {
-      // WebDAV метод (существующий код)
-      const baseUrl = result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks';
-      const url = baseUrl + '/' + currentPage;
-      
-      const response = await fetch(url, {
-        headers: url.startsWith('file://') ? {} : {
-          'Authorization': 'Basic ' + btoa(
-            (result.username || '') + ':' + (result.password || '')
-          )
-        }
-      });
-      
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const text = await response.text();
-      return text;
+      throw new Error('Неверный формат ответа API');
     }
   } catch (error) {
-    const method = result?.useApi ? 'API' : 'WebDAV';
-    return `Error: ${error.message}${error.message.includes('401') ? `\nПроверьте настройки ${method} в панели настроек` : ''}`;
+    return `Error: ${error.message}${error.message.includes('401') ? `\nПроверьте настройки API в панели настроек` : ''}`;
   }
 };
 
@@ -66,33 +42,26 @@ export const saveCurrentPage = async (currentPage, content) => {
       'apiUrl'
     ]);
     
-    // Проверяем, какой метод использовать
-    if (result.useApi) {
-      // API метод для сохранения
-      const apiUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
-      const url = `${apiUrl}/${currentPage}`;
-      
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'text/markdown',
-          'Authorization': `Bearer ${result.apiKey || ''}`
-        },
-        body: content
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-      }
-      
-      return true;
-    } else {
-      // WebDAV метод для сохранения (если поддерживается)
-      throw new Error('Сохранение через WebDAV не поддерживается. Включите API режим в настройках.');
+    // Используем только API метод для сохранения
+    const apiUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
+    const url = `${apiUrl}/${currentPage}`;
+    
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'text/markdown',
+        'Authorization': `Bearer ${result.apiKey || ''}`
+      },
+      body: content
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
     }
+    
+    return true;
   } catch (error) {
-    const method = result?.useApi ? 'API' : 'WebDAV';
-    throw new Error(`${method} ошибка: ${error.message}`);
+    throw new Error(`API ошибка: ${error.message}`);
   }
 };
