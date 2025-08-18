@@ -7,6 +7,90 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Ретрансляция сообщений от content script к панели (и наоборот при необходимости)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type === 'hotkeys') {
+    // Отправляем всем страницам панели сообщение о горячих клавишах
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        // Пытаемся отправить в контент панели, если открыт sidebar.html
+        if (tab.url && tab.url.includes('sidebar.html')) {
+          try {
+            chrome.tabs.sendMessage(tab.id, message);
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    });
+  }
+});
+
+// Обработчик команд (горячих клавиш)
+chrome.commands.onCommand.addListener(async (command) => {
+  console.log('Получена команда:', command);
+  
+  if (command === 'toggle-hotkeys') {
+    try {
+      console.log('Обрабатываем команду toggle-hotkeys');
+      
+      // Получаем все вкладки с боковой панелью
+      const tabs = await chrome.tabs.query({
+        url: chrome.runtime.getURL('sidebar.html')
+      });
+      
+      console.log('Найдено вкладок с панелью:', tabs.length);
+
+      if (tabs.length === 0) {
+        console.log('Боковая панель не найдена, открываем вкладку sidebar.html');
+        try {
+          const createdTab = await chrome.tabs.create({ url: chrome.runtime.getURL('sidebar.html'), active: true });
+          await chrome.windows.update(createdTab.windowId, { focused: true });
+
+          const onUpdatedListener = async (tabId, info) => {
+            if (tabId === createdTab.id && info.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(onUpdatedListener);
+              try {
+                await chrome.tabs.sendMessage(createdTab.id, {
+                  type: 'hotkeys',
+                  action: 'activate'
+                });
+                console.log('Сообщение отправлено во вкладку sidebar.html');
+              } catch (error) {
+                console.log('Ошибка отправки в новую вкладку:', error);
+              }
+            }
+          };
+          chrome.tabs.onUpdated.addListener(onUpdatedListener);
+        } catch (error) {
+          console.error('Ошибка открытия вкладки sidebar.html:', error);
+        }
+        return;
+      }
+
+      // Активируем первую вкладку с панелью
+      await chrome.tabs.update(tabs[0].id, { active: true });
+      await chrome.windows.update(tabs[0].windowId, { focused: true });
+      console.log('Вкладка активирована:', tabs[0].id);
+
+      // Отправляем сообщение для переключения горячих клавиш
+      for (const tab of tabs) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, {
+            type: 'hotkeys',
+            action: 'activate'
+          });
+          console.log('Сообщение отправлено в вкладку:', tab.id);
+        } catch (error) {
+          console.log('Не удалось отправить сообщение в вкладку:', tab.id, error);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка при обработке команды toggle-hotkeys:', error);
+    }
+  }
+});
+
 // Обработчик клика по контекстному меню
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "addToBookmarks") {

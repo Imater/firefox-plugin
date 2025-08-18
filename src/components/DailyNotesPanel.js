@@ -6,7 +6,8 @@ import {
   Tooltip,
   Snackbar,
   Alert,
-  Typography
+  Typography,
+  Button
 } from '@mui/material';
 import { 
   ChevronLeft as YesterdayIcon,
@@ -14,11 +15,12 @@ import {
   Today as TodayIcon,
   DragIndicator as DragIcon,
   ViewDay as DailyIcon,
-  ViewWeek as WeeklyIcon,
-  ViewModule as MonthlyIcon,
-  CalendarMonth as YearlyIcon
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
+import { renderMarkdown } from '../utils/markdownRenderer';
 
 const PanelContainer = styled(Box)(({ theme, height, isOpen }) => ({
   position: 'fixed',
@@ -40,14 +42,14 @@ const Toolbar = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '8px 16px',
-  backgroundColor: theme.palette.grey[100],
+  padding: '2px 16px',
+  backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
   borderBottom: `1px solid ${theme.palette.divider}`,
-  minHeight: '48px',
+  minHeight: '15px',
   '& .toolbar-left': {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '4px',
     flex: 1,
   },
   '& .toolbar-center': {
@@ -59,21 +61,26 @@ const Toolbar = styled(Box)(({ theme }) => ({
   '& .toolbar-right': {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '4px',
     flex: 1,
     justifyContent: 'flex-end',
   },
   '& .date-display': {
-    fontSize: '14px',
+    fontSize: '12px',
     fontWeight: 'bold',
     color: theme.palette.text.primary,
   },
+  '& .editor-actions': {
+    display: 'flex',
+    gap: '4px',
+  },
 }));
 
-const EditorContainer = styled(Box)(({ theme }) => ({
+const ContentContainer = styled(Box)(({ theme }) => ({
   flex: 1,
   padding: '16px',
-  overflow: 'hidden',
+  overflow: 'auto',
+  color: theme.palette.text.primary,
   '& .MuiTextField-root': {
     width: '100%',
     height: '100%',
@@ -86,6 +93,68 @@ const EditorContainer = styled(Box)(({ theme }) => ({
       height: '100% !important',
       overflow: 'auto',
     },
+  },
+  '& .markdown-content': {
+    fontSize: '12px',
+    lineHeight: '1.5',
+    color: theme.palette.text.primary,
+    '& h1, & h2, & h3, & h4, & h5, & h6': {
+      marginTop: '8px',
+      marginBottom: '4px',
+      color: theme.palette.text.primary,
+    },
+    '& p': {
+      margin: '4px 0',
+      color: theme.palette.text.primary,
+    },
+    '& ul, & ol': {
+      margin: '4px 0',
+      paddingLeft: '20px',
+      color: theme.palette.text.primary,
+    },
+    '& li': {
+      color: theme.palette.text.primary,
+    },
+    '& a': {
+      color: theme.palette.primary.main,
+      textDecoration: 'none',
+      '&:hover': {
+        textDecoration: 'underline',
+      },
+    },
+    '& code': {
+      backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+      color: theme.palette.text.primary,
+      padding: '2px 4px',
+      borderRadius: '3px',
+      fontSize: '11px',
+    },
+    '& pre': {
+      backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+      color: theme.palette.text.primary,
+      padding: '8px',
+      borderRadius: '4px',
+      overflow: 'auto',
+      fontSize: '11px',
+    },
+    '& blockquote': {
+      borderLeft: `3px solid ${theme.palette.primary.main}`,
+      margin: '8px 0',
+      padding: '4px 12px',
+      backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+      color: theme.palette.text.secondary,
+    },
+  },
+  '& .hotkey-symbol': {
+    color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+    fontWeight: 'bold',
+    fontSize: '0.9em',
+    marginLeft: '4px',
+    backgroundColor: theme.palette.mode === 'dark' ? '#ff6b35' : '#ff9800',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    border: `2px solid ${theme.palette.mode === 'dark' ? '#ff6b35' : '#ff9800'}`,
+    textShadow: theme.palette.mode === 'dark' ? '0 0 2px rgba(255, 255, 255, 0.8)' : '0 0 2px rgba(0, 0, 0, 0.3)',
   },
 }));
 
@@ -116,12 +185,13 @@ const DailyNotesPanel = ({
   onDateChange,
   currentDate,
   content,
-  onContentChange,
   onSave,
   noteType = 'daily',
-  onNoteTypeChange
+  showHotkeys = false,
+  onEditingChange
 }) => {
-  const [localContent, setLocalContent] = useState(content);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(content);
   const [isSaving, setIsSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [isResizing, setIsResizing] = useState(false);
@@ -130,10 +200,17 @@ const DailyNotesPanel = ({
   
   const panelRef = useRef(null);
 
-  // Обновляем локальный контент при изменении content
+  // Обновляем editContent при изменении content
   useEffect(() => {
-    setLocalContent(content);
+    setEditContent(content);
   }, [content]);
+
+  // Уведомляем родительский компонент об изменении состояния редактирования
+  useEffect(() => {
+    if (onEditingChange) {
+      onEditingChange(isEditing);
+    }
+  }, [isEditing, onEditingChange]);
 
   // Обработка изменения даты
   const handleDateChange = (direction) => {
@@ -159,66 +236,37 @@ const DailyNotesPanel = ({
     onDateChange(newDate);
   };
 
-  // Обработка изменения типа заметки
-  const handleNoteTypeChange = (type) => {
-    if (onNoteTypeChange) {
-      onNoteTypeChange(type);
-    }
-  };
-
-  // Получение иконки для типа заметки
-  const getNoteTypeIcon = (type) => {
-    switch (type) {
-      case 'daily':
-        return <DailyIcon />;
-      case 'weekly':
-        return <WeeklyIcon />;
-      case 'monthly':
-        return <MonthlyIcon />;
-      case 'yearly':
-        return <YearlyIcon />;
-      default:
-        return <DailyIcon />;
-    }
-  };
-
   // Получение названия типа заметки
   const getNoteTypeName = (type) => {
-    switch (type) {
-      case 'daily':
-        return 'Ежедневные';
-      case 'weekly':
-        return 'Еженедельные';
-      case 'monthly':
-        return 'Ежемесячные';
-      case 'yearly':
-        return 'Ежегодные';
-      default:
-        return 'Ежедневные';
+    return 'Ежедневные';
+  };
+
+  // Обработка сохранения
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(editContent);
+      setSnackbar({ 
+        open: true, 
+        message: 'Сохранено успешно!', 
+        severity: 'success' 
+      });
+      setIsEditing(false);
+    } catch (error) {
+      setSnackbar({ 
+        open: true, 
+        message: `Ошибка сохранения: ${error.message}`, 
+        severity: 'error' 
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Автосохранение при потере фокуса
-  const handleBlur = async () => {
-    if (localContent !== content && localContent.trim() !== '') {
-      setIsSaving(true);
-      try {
-        await onSave(localContent);
-        setSnackbar({ 
-          open: true, 
-          message: 'Сохранено автоматически', 
-          severity: 'success' 
-        });
-      } catch (error) {
-        setSnackbar({ 
-          open: true, 
-          message: `Ошибка сохранения: ${error.message}`, 
-          severity: 'error' 
-        });
-      } finally {
-        setIsSaving(false);
-      }
-    }
+  // Обработка отмены
+  const handleCancel = () => {
+    setEditContent(content);
+    setIsEditing(false);
   };
 
   // Обработка изменения размера панели
@@ -276,33 +324,40 @@ const DailyNotesPanel = ({
       
       <Toolbar>
         <div className="toolbar-left">
-          <Tooltip title="Вчера">
-            <IconButton 
-              size="small" 
-              onClick={() => handleDateChange('yesterday')}
-            >
-              <YesterdayIcon />
-            </IconButton>
-          </Tooltip>
-          
-          <Tooltip title="Сегодня">
-            <IconButton 
-              size="small" 
-              onClick={() => handleDateChange('today')}
-              color="primary"
-            >
-              <TodayIcon />
-            </IconButton>
-          </Tooltip>
-          
-          <Tooltip title="Завтра">
-            <IconButton 
-              size="small" 
-              onClick={() => handleDateChange('tomorrow')}
-            >
-              <TomorrowIcon />
-            </IconButton>
-          </Tooltip>
+          {!isEditing && (
+            <>
+              <Tooltip title="Вчера">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleDateChange('yesterday')}
+                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                >
+                  <YesterdayIcon sx={{ fontSize: '16px' }} />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Сегодня">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleDateChange('today')}
+                  color="primary"
+                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                >
+                  <TodayIcon sx={{ fontSize: '16px' }} />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title="Завтра">
+                <IconButton 
+                  size="small" 
+                  onClick={() => handleDateChange('tomorrow')}
+                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                >
+                  <TomorrowIcon sx={{ fontSize: '16px' }} />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
         </div>
         
         <div className="toolbar-center">
@@ -310,72 +365,81 @@ const DailyNotesPanel = ({
             <Tooltip title="Ежедневные заметки">
               <IconButton 
                 size="small" 
-                onClick={() => handleNoteTypeChange('daily')}
-                color={noteType === 'daily' ? 'primary' : 'default'}
+                color="primary"
+                sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
               >
-                <DailyIcon />
-              </IconButton>
-            </Tooltip>
-            
-            <Tooltip title="Еженедельные заметки">
-              <IconButton 
-                size="small" 
-                onClick={() => handleNoteTypeChange('weekly')}
-                color={noteType === 'weekly' ? 'primary' : 'default'}
-              >
-                <WeeklyIcon />
-              </IconButton>
-            </Tooltip>
-            
-            <Tooltip title="Ежемесячные заметки">
-              <IconButton 
-                size="small" 
-                onClick={() => handleNoteTypeChange('monthly')}
-                color={noteType === 'monthly' ? 'primary' : 'default'}
-              >
-                <MonthlyIcon />
-              </IconButton>
-            </Tooltip>
-            
-            <Tooltip title="Ежегодные заметки">
-              <IconButton 
-                size="small" 
-                onClick={() => handleNoteTypeChange('yearly')}
-                color={noteType === 'yearly' ? 'primary' : 'default'}
-              >
-                <YearlyIcon />
+                <DailyIcon sx={{ fontSize: '16px' }} />
               </IconButton>
             </Tooltip>
           </Box>
         </div>
         
         <div className="toolbar-right">
-          <Typography className="date-display">
-            {formatDate(currentDate)}
-          </Typography>
-          {isSaving && (
-            <Typography variant="caption" color="text.secondary">
-              Сохранение...
+          {!isEditing && (
+            <Typography className="date-display">
+              {formatDate(currentDate)}
             </Typography>
+          )}
+          
+          {isEditing ? (
+            <div className="editor-actions">
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                disabled={isSaving}
+                size="small"
+                sx={{ fontSize: '10px', padding: '2px 8px', minHeight: '24px' }}
+              >
+                {isSaving ? 'Сохранение...' : 'Сохранить'}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<CancelIcon />}
+                onClick={handleCancel}
+                disabled={isSaving}
+                size="small"
+                sx={{ fontSize: '10px', padding: '2px 8px', minHeight: '24px' }}
+              >
+                Отмена
+              </Button>
+            </div>
+          ) : (
+            <Tooltip title="Редактировать">
+              <IconButton 
+                size="small" 
+                onClick={() => setIsEditing(true)}
+                sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+              >
+                <EditIcon sx={{ fontSize: '16px' }} />
+              </IconButton>
+            </Tooltip>
           )}
         </div>
       </Toolbar>
       
-      <EditorContainer>
-        <TextField
-          multiline
-          value={localContent}
-          onChange={(e) => setLocalContent(e.target.value)}
-          onBlur={handleBlur}
-          variant="outlined"
-          placeholder="Начните писать вашу ежедневную заметку..."
-          sx={{
-            '& .MuiInputBase-root': {
-              fontSize: '10px',
-            }
-          }}
-        />
-      </EditorContainer>
+      <ContentContainer>
+        {isEditing ? (
+          <TextField
+            multiline
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            variant="outlined"
+            placeholder="Начните писать вашу ежедневную заметку..."
+            sx={{
+              '& .MuiInputBase-root': {
+                fontSize: '10px',
+              }
+            }}
+          />
+        ) : (
+          <div 
+            className="markdown-content"
+            dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && showHotkeys, 20)} // DailyNotes начинается с индекса 20 для уникальности
+          />
+        )}
+      </ContentContainer>
       
       <Snackbar
         open={snackbar.open}

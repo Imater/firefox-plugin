@@ -1,5 +1,5 @@
 import './chrome-mock';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@mui/material/styles';
 import { Box } from '@mui/material';
@@ -21,7 +21,7 @@ import { useTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useSettings';
 
 // Utils
-import { renderMarkdown } from './utils/markdownRenderer';
+import { renderMarkdown, countHotkeyTargets } from './utils/markdownRenderer';
 
 // Services
 import { loadCurrentPage, saveCurrentPage } from './services/pageService';
@@ -29,9 +29,6 @@ import { activateOrCreateTab, resolveUrl, cleanupClosedTabs } from './services/t
 import { 
   loadDailyNote, 
   saveDailyNote, 
-  loadWeeklyNote, 
-  loadMonthlyNote, 
-  loadYearlyNote,
   savePeriodicNote
 } from './services/dailyNotesService';
 
@@ -42,10 +39,12 @@ function App() {
   const [currentPage, setCurrentPage] = useState('index.md');
   const [showSettings, setShowSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDailyNotesEditing, setIsDailyNotesEditing] = useState(false);
   const [dailyNotesPanelOpen, setDailyNotesPanelOpen] = useState(false);
   const [dailyNoteContent, setDailyNoteContent] = useState('');
   const [currentDailyDate, setCurrentDailyDate] = useState(new Date());
-  const [currentNoteType, setCurrentNoteType] = useState('daily');
+  const [currentNoteType] = useState('daily');
+
   
   const { isDarkMode, saveTheme } = useTheme();
   const { settings, setSettings, saveSettings } = useSettings();
@@ -88,24 +87,118 @@ function App() {
     };
   }, []);
 
-  // Слушаем сообщения от background script для обновления содержимого
+  // Слушаем сообщения от background script для обновления содержимого и горячих клавиш
   useEffect(() => {
     const handleMessage = async (message, sender, sendResponse) => {
-      if (message.type === 'refresh_content' && message.action === 'reload_bookmarks') {
-        // Обновляем содержимое закладок
+      console.log('Получено сообщение в App.jsx:', message);
+      
+      if (message?.type === 'refresh_content' && message?.action === 'reload_bookmarks') {
         if (currentPage === 'index.md') {
           await handleLoadCurrentPage();
+        }
+      }
+
+      if (message?.type === 'hotkeys') {
+        console.log('Обрабатываем сообщение hotkeys:', message.action);
+        if (message.action === 'activate' && typeof message.key === 'string') {
+          const key = String(message.key).toLowerCase();
+          const elements = document.querySelectorAll('[data-hotkey]');
+          for (const element of elements) {
+            if (element.getAttribute('data-hotkey') === key) {
+              if (element.classList.contains('wiki-link')) {
+                const pageName = element.getAttribute('data-page');
+                if (pageName) handleWikiLinkClick(pageName);
+              } else if (element.classList.contains('external-link')) {
+                const url = element.getAttribute('data-url');
+                if (url) handleExternalLinkClick(url);
+              }
+              break;
+            }
+          }
         }
       }
     };
 
     chrome.runtime.onMessage.addListener(handleMessage);
-    
-    // Очистка слушателя при размонтировании компонента
-    return () => {
-      chrome.runtime.onMessage.removeListener(handleMessage);
-    };
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, [currentPage]);
+
+
+
+  // Обработка нажатия горячих клавиш (внутри панели)
+  useEffect(() => {
+    let buffer = '';
+    let bufferTimeoutId = null;
+
+    const resetBuffer = () => {
+      buffer = '';
+      if (bufferTimeoutId) {
+        clearTimeout(bufferTimeoutId);
+        bufferTimeoutId = null;
+      }
+    };
+
+    const handleHotkeyPress = (e) => {
+      if (isEditing || isDailyNotesEditing) return; // Не обрабатываем горячие клавиши в режиме редактирования
+      
+      const isInput = ['INPUT', 'TEXTAREA'].includes((e.target && e.target.tagName) || '') || e.target.isContentEditable;
+      if (isInput) return;
+
+      let key = e.key.toLowerCase();
+      
+      // Обработка клавиши 0 для перехода домой
+      if (key === '0') {
+        e.preventDefault();
+        goHome();
+        return;
+      }
+      
+      // Игнорируем модификаторы
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      // Принимаем только латиницу и цифры
+      if (!/^[a-z0-9]$/.test(key)) return;
+
+      // Буфер до 2 символов
+      buffer = (buffer + key).slice(-2);
+      if (bufferTimeoutId) clearTimeout(bufferTimeoutId);
+      bufferTimeoutId = setTimeout(resetBuffer, 1000);
+      
+      const hotkeyElements = document.querySelectorAll('[data-hotkey]');
+      
+      // Пытаемся найти полное совпадение с буфером, если нет — пробуем последний символ
+      const tryKeys = [buffer, key];
+      for (const candidate of tryKeys) {
+        const match = Array.from(hotkeyElements).find(el => el.getAttribute('data-hotkey') === candidate);
+        if (match) {
+          e.preventDefault();
+          if (match.classList.contains('wiki-link')) {
+            const pageName = match.getAttribute('data-page');
+            if (pageName) {
+              handleWikiLinkClick(pageName);
+            }
+          } else if (match.classList.contains('external-link')) {
+            const url = match.getAttribute('data-url');
+            if (url) {
+              handleExternalLinkClick(url);
+            }
+          }
+          resetBuffer();
+          break;
+        }
+      }
+    };
+
+    if (!isEditing && !isDailyNotesEditing) {
+      document.addEventListener('keydown', handleHotkeyPress);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleHotkeyPress);
+    };
+  }, [isEditing, isDailyNotesEditing]);
+
+
 
   const handleLoadCurrentPage = async () => {
     const text = await loadCurrentPage(currentPage);
@@ -119,23 +212,7 @@ function App() {
 
   const handleLoadDailyNote = async (date, type = currentNoteType) => {
     try {
-      let noteContent;
-      switch (type) {
-        case 'daily':
-          noteContent = await loadDailyNote(date);
-          break;
-        case 'weekly':
-          noteContent = await loadWeeklyNote(date);
-          break;
-        case 'monthly':
-          noteContent = await loadMonthlyNote(date);
-          break;
-        case 'yearly':
-          noteContent = await loadYearlyNote(date);
-          break;
-        default:
-          noteContent = await loadDailyNote(date);
-      }
+      const noteContent = await loadDailyNote(date);
       setDailyNoteContent(noteContent);
     } catch (error) {
       console.error(`Ошибка загрузки ${type} заметки:`, error);
@@ -148,10 +225,7 @@ function App() {
     setDailyNoteContent(newContent);
   };
 
-  const handleNoteTypeChange = async (newType) => {
-    setCurrentNoteType(newType);
-    await handleLoadDailyNote(currentDailyDate, newType);
-  };
+
 
   const handleDailyDateChange = async (newDate) => {
     setCurrentDailyDate(newDate);
@@ -213,6 +287,7 @@ function App() {
           onToggleSettings={() => setShowSettings(!showSettings)}
           onToggleEdit={() => setIsEditing(!isEditing)}
           isEditing={isEditing}
+          isDailyNotesEditing={isDailyNotesEditing}
           currentPage={currentPage}
           onBreadcrumbClick={handleBreadcrumbClick}
           isDarkMode={isDarkMode}
@@ -240,7 +315,7 @@ function App() {
         {!isEditing && (
           <ContentBox hasFooter={true}>
             <div 
-              dangerouslySetInnerHTML={renderMarkdown(content)}
+              dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing, 0)} // Основной редактор начинается с индекса 0
               onClick={(e) => {
                 if (e.target.classList.contains('wiki-link')) {
                   e.preventDefault();
@@ -271,7 +346,9 @@ function App() {
           content={dailyNoteContent}
           onSave={handleSaveDailyNote}
           noteType={currentNoteType}
-          onNoteTypeChange={handleNoteTypeChange}
+          showHotkeys={!isEditing && !isDailyNotesEditing} // Показываем метки когда оба редактора не в режиме редактирования
+          startIndex={!isEditing && !isDailyNotesEditing ? countHotkeyTargets(content) : 0}
+          onEditingChange={setIsDailyNotesEditing} // Передаем функцию для обновления состояния редактирования
         />
 
         <Footer

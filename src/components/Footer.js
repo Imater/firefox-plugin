@@ -35,18 +35,7 @@ const FooterContainer = styled(Box)(({ theme, isOpen }) => ({
 
 const Footer = ({ isOpen, onToggle, height, noteType = 'daily' }) => {
   const getNoteTypeName = (type) => {
-    switch (type) {
-      case 'daily':
-        return 'Ежедневные';
-      case 'weekly':
-        return 'Еженедельные';
-      case 'monthly':
-        return 'Ежемесячные';
-      case 'yearly':
-        return 'Ежегодные';
-      default:
-        return 'Ежедневные';
-    }
+    return 'Ежедневные';
   };
 
   return (
