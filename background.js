@@ -19,7 +19,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     
     if (bookmarkData) {
       // Добавляем ссылку в заметку
-      await addBookmarkToNote(bookmarkData.title, bookmarkData.url);
+      await addBookmarkToNote(bookmarkData.title, bookmarkData.url, bookmarkData.destination);
     }
   }
 });
@@ -82,7 +82,7 @@ function showBookmarkDialog(defaultTitle, url) {
 }
 
 // Функция для добавления закладки в заметку
-async function addBookmarkToNote(title, url) {
+async function addBookmarkToNote(title, url, destination = 'current') {
   try {
     // Получаем настройки
     const result = await chrome.storage.local.get(['useApi', 'apiKey', 'apiUrl']);
@@ -95,8 +95,77 @@ async function addBookmarkToNote(title, url) {
     const newBookmark = `\n[${title}](${url})`;
     
     // Определяем какой файл редактировать: активный из правой панели или index.md по умолчанию
-    const current = await chrome.storage.local.get(['currentPage']);
-    const pagePath = current?.currentPage || 'bookmarks/index.md';
+    const current = await chrome.storage.local.get(['currentPage', 'periodicApiUrl', 'apiKey']);
+    let pagePath = current?.currentPage || 'bookmarks/index.md';
+
+    // Если выбрано "сегодня" — добавляем в ежедневную заметку
+    if (destination === 'today') {
+      const today = new Date();
+      const year = String(today.getFullYear());
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+
+      // Пробуем загрузить текущий контент ежедневной заметки с Periodic API
+      const periodicApiBase = (current.periodicApiUrl || 'http://127.0.0.1:27123');
+      const dailyUrl = `${periodicApiBase}/periodic/daily/${year}/${month}/${day}/`;
+
+      // Подготовим контент для добавления в ежедневную заметку
+      const newBookmarkLine = `\n- [${title}](${url})`;
+
+      try {
+        // Проверяем существование
+        const checkResp = await fetch(dailyUrl, {
+          headers: {
+            'accept': 'application/vnd.olrapi.note+json',
+            'Authorization': `Bearer ${current.apiKey || ''}`
+          }
+        });
+
+        let bodyToSave = '';
+        if (checkResp.status === 404) {
+          // Создаем новую заметку
+          bodyToSave = newBookmarkLine.trimStart();
+          const createResp = await fetch(dailyUrl, {
+            method: 'PUT',
+            headers: {
+              'accept': '*/*',
+              'Content-Type': 'text/markdown',
+              'Authorization': `Bearer ${current.apiKey || ''}`
+            },
+            body: bodyToSave
+          });
+          if (!createResp.ok) throw new Error(`HTTP ${createResp.status}`);
+        } else if (checkResp.ok) {
+          const data = await checkResp.json();
+          const existing = data?.content || '';
+          bodyToSave = existing + newBookmarkLine;
+          const updateResp = await fetch(dailyUrl, {
+            method: 'PUT',
+            headers: {
+              'accept': '*/*',
+              'Content-Type': 'text/markdown',
+              'Authorization': `Bearer ${current.apiKey || ''}`
+            },
+            body: bodyToSave
+          });
+          if (!updateResp.ok) throw new Error(`HTTP ${updateResp.status}`);
+        } else {
+          throw new Error(`HTTP ${checkResp.status}`);
+        }
+
+        // Уведомление и обновление панели, затем выходим
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon.png',
+          title: 'Закладка добавлена',
+          message: `Ссылка "${title}" добавлена в ежедневную заметку`
+        });
+        await refreshSidePanel();
+        return;
+      } catch (e) {
+        throw new Error(`Ошибка сохранения в ежедневную заметку: ${e.message}`);
+      }
+    }
 
     // Загружаем текущую заметку
     const apiUrl = (result.apiUrl || 'http://127.0.0.1:27123/vault');

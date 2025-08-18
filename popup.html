@@ -87,6 +87,16 @@
         <h2>Добавить закладку</h2>
         
         <div class="form-group">
+            <label>Куда добавить:</label>
+            <div>
+                <label><input type="radio" name="targetDestination" value="current" checked> Текущая заметка</label>
+            </div>
+            <div>
+                <label><input type="radio" name="targetDestination" value="today"> Сегодня (ежедневная)</label>
+            </div>
+        </div>
+
+        <div class="form-group">
             <label for="title">Название ссылки:</label>
             <input type="text" id="title" placeholder="Введите название ссылки">
         </div>

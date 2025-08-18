@@ -3,6 +3,7 @@ const titleInput = document.getElementById('title');
 const urlDisplay = document.getElementById('url-display');
 const addBtn = document.getElementById('add-btn');
 const cancelBtn = document.getElementById('cancel-btn');
+const destinationInputs = () => Array.from(document.querySelectorAll('input[name="targetDestination"]'));
 
 // Получаем данные от background script
 let defaultTitle = '';
@@ -45,6 +46,7 @@ cancelBtn.addEventListener('click', function() {
 function addBookmark() {
     const title = titleInput.value.trim();
     const url = defaultUrl;
+    const destination = (destinationInputs().find(r => r.checked) || {}).value || 'current';
     
     if (!title) {
         alert('Пожалуйста, введите название ссылки');
@@ -62,7 +64,8 @@ function addBookmark() {
         type: 'bookmark_data',
         data: {
             title: title,
-            url: url
+            url: url,
+            destination: destination
         }
     });
 }
