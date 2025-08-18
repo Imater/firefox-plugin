@@ -54,6 +54,11 @@ function App() {
     handleLoadCurrentPage();
   }, [currentPage]);
 
+  // Сохраняем активную страницу для использования в background.js
+  useEffect(() => {
+    chrome.storage.local.set({ currentPage: currentPage });
+  }, [currentPage]);
+
   useEffect(() => {
     handleLoadCurrentPage();
   }, []);
@@ -82,6 +87,25 @@ function App() {
       chrome.tabs.onRemoved.removeListener(handleTabRemoved);
     };
   }, []);
+
+  // Слушаем сообщения от background script для обновления содержимого
+  useEffect(() => {
+    const handleMessage = async (message, sender, sendResponse) => {
+      if (message.type === 'refresh_content' && message.action === 'reload_bookmarks') {
+        // Обновляем содержимое закладок
+        if (currentPage === 'index.md') {
+          await handleLoadCurrentPage();
+        }
+      }
+    };
+
+    chrome.runtime.onMessage.addListener(handleMessage);
+    
+    // Очистка слушателя при размонтировании компонента
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage);
+    };
+  }, [currentPage]);
 
   const handleLoadCurrentPage = async () => {
     const text = await loadCurrentPage(currentPage);

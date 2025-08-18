@@ -11,11 +11,17 @@
     "side_panel": {
         "default_path": "sidebar.html"
     },
+    "background": {
+        "service_worker": "background.js"
+    },
     "permissions": [
         "sidePanel",
         "storage",
         "webRequest",
-        "tabs"
+        "tabs",
+        "contextMenus",
+        "notifications",
+        "windows"
     ],
     "host_permissions": [
         "https://imater74.keenetic.link/*",

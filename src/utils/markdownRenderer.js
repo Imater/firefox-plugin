@@ -13,6 +13,13 @@ export const renderMarkdown = (content) => {
     (match, p1) => `<a href="#" class="wiki-link" data-page="${p1}">${p1}</a>`
   );
 
+  // Настраиваем marked для правильной обработки переносов строк
+  marked.setOptions({
+    breaks: true, // Преобразует \n в <br>
+    gfm: true,    // GitHub Flavored Markdown
+    renderer: renderer
+  });
+
   // Then render markdown with custom renderer
-  return { __html: marked.parse(withWikiLinks, { renderer }) };
+  return { __html: marked.parse(withWikiLinks) };
 };
