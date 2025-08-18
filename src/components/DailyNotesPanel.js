@@ -146,15 +146,15 @@ const ContentContainer = styled(Box)(({ theme }) => ({
     },
   },
   '& .hotkey-symbol': {
-    color: theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+    color: '#000000',
     fontWeight: 'bold',
     fontSize: '0.9em',
     marginLeft: '4px',
-    backgroundColor: theme.palette.mode === 'dark' ? '#ff6b35' : '#ff9800',
-    padding: '2px 6px',
-    borderRadius: '4px',
-    border: `2px solid ${theme.palette.mode === 'dark' ? '#ff6b35' : '#ff9800'}`,
-    textShadow: theme.palette.mode === 'dark' ? '0 0 2px rgba(255, 255, 255, 0.8)' : '0 0 2px rgba(0, 0, 0, 0.3)',
+    backgroundColor: theme.palette.mode === 'dark' ? '#d0d0d0' : '#e0e0e0',
+    padding: '1px 5px',
+    borderRadius: '999px',
+    border: '1px solid #bdbdbd',
+    opacity: 0.9,
   },
 }));
 
