@@ -9,6 +9,8 @@ export const useSettings = () => {
     useApi: true,
     apiKey: 'bf299179ab0731b5fd2351fe4a3362cc43984e360f258133bb5ec406394c594f',
     apiUrl: 'http://127.0.0.1:27123/vault/bookmarks',
+    periodicApiUrl: 'http://127.0.0.1:27123',
+    dailyNotesPanelHeight: 300,
   });
 
   const loadSettings = async () => {
@@ -19,7 +21,9 @@ export const useSettings = () => {
       'tabRefreshMinutes',
       'useApi',
       'apiKey',
-      'apiUrl'
+      'apiUrl',
+      'periodicApiUrl',
+      'dailyNotesPanelHeight'
     ]);
     setSettings({
       webdavUrl: result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks',
@@ -29,6 +33,8 @@ export const useSettings = () => {
       useApi: result.useApi || false,
       apiKey: result.apiKey || 'bf299179ab0731b5fd2351fe4a3362cc43984e360f258133bb5ec406394c594f',
       apiUrl: result.apiUrl || 'http://127.0.0.1:27123/vault',
+      periodicApiUrl: result.periodicApiUrl || 'http://127.0.0.1:27123',
+      dailyNotesPanelHeight: result.dailyNotesPanelHeight || 300,
     });
   };
 
@@ -42,6 +48,8 @@ export const useSettings = () => {
       useApi: settings.useApi,
       apiKey: settings.apiKey,
       apiUrl: settings.apiUrl,
+      periodicApiUrl: settings.periodicApiUrl,
+      dailyNotesPanelHeight: settings.dailyNotesPanelHeight || 300,
     });
     goHome();
   };

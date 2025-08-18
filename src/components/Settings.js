@@ -58,6 +58,14 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
             margin="dense"
             helperText="Bearer токен для авторизации"
           />
+          <TextField
+            label="Periodic Notes API URL"
+            value={settings.periodicApiUrl}
+            onChange={(e) => setSettings({...settings, periodicApiUrl: e.target.value})}
+            fullWidth
+            margin="dense"
+            helperText="URL для Periodic Notes API (например: http://127.0.0.1:27124)"
+          />
         </>
       ) : (
         <>

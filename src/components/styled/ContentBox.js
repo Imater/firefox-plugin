@@ -1,8 +1,9 @@
 import { Box } from '@mui/material';
 import { styled } from '@mui/system';
 
-const ContentBox = styled(Box)(({ theme }) => ({
+const ContentBox = styled(Box)(({ theme, hasFooter }) => ({
   padding: '10px',
+  paddingBottom: hasFooter ? '24px' : '10px',
   backgroundColor: theme.palette.background.default,
   color: theme.palette.text.primary,
   '& pre': {

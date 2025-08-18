@@ -13,6 +13,8 @@ import Header from './components/Header';
 import Settings from './components/Settings';
 import ContentBox from './components/styled/ContentBox';
 import MarkdownEditor from './components/MarkdownEditor';
+import Footer from './components/Footer';
+import DailyNotesPanel from './components/DailyNotesPanel';
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
@@ -24,6 +26,14 @@ import { renderMarkdown } from './utils/markdownRenderer';
 // Services
 import { loadCurrentPage, saveCurrentPage } from './services/pageService';
 import { activateOrCreateTab, resolveUrl, cleanupClosedTabs } from './services/tabService';
+import { 
+  loadDailyNote, 
+  saveDailyNote, 
+  loadWeeklyNote, 
+  loadMonthlyNote, 
+  loadYearlyNote,
+  savePeriodicNote
+} from './services/dailyNotesService';
 
 
 
@@ -32,6 +42,10 @@ function App() {
   const [currentPage, setCurrentPage] = useState('index.md');
   const [showSettings, setShowSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [dailyNotesPanelOpen, setDailyNotesPanelOpen] = useState(false);
+  const [dailyNoteContent, setDailyNoteContent] = useState('');
+  const [currentDailyDate, setCurrentDailyDate] = useState(new Date());
+  const [currentNoteType, setCurrentNoteType] = useState('daily');
   
   const { isDarkMode, saveTheme } = useTheme();
   const { settings, setSettings, saveSettings } = useSettings();
@@ -43,6 +57,13 @@ function App() {
   useEffect(() => {
     handleLoadCurrentPage();
   }, []);
+
+  // Загружаем заметку при изменении даты или типа
+  useEffect(() => {
+    if (dailyNotesPanelOpen) {
+      handleLoadDailyNote(currentDailyDate, currentNoteType);
+    }
+  }, [currentDailyDate, currentNoteType, dailyNotesPanelOpen]);
 
   // Очистка записей о закрытых вкладках при загрузке приложения
   useEffect(() => {
@@ -70,6 +91,52 @@ function App() {
   const handleSavePage = async (newContent) => {
     await saveCurrentPage(currentPage, newContent);
     setContent(newContent);
+  };
+
+  const handleLoadDailyNote = async (date, type = currentNoteType) => {
+    try {
+      let noteContent;
+      switch (type) {
+        case 'daily':
+          noteContent = await loadDailyNote(date);
+          break;
+        case 'weekly':
+          noteContent = await loadWeeklyNote(date);
+          break;
+        case 'monthly':
+          noteContent = await loadMonthlyNote(date);
+          break;
+        case 'yearly':
+          noteContent = await loadYearlyNote(date);
+          break;
+        default:
+          noteContent = await loadDailyNote(date);
+      }
+      setDailyNoteContent(noteContent);
+    } catch (error) {
+      console.error(`Ошибка загрузки ${type} заметки:`, error);
+      setDailyNoteContent('');
+    }
+  };
+
+  const handleSaveDailyNote = async (newContent) => {
+    await savePeriodicNote(currentDailyDate, newContent, currentNoteType);
+    setDailyNoteContent(newContent);
+  };
+
+  const handleNoteTypeChange = async (newType) => {
+    setCurrentNoteType(newType);
+    await handleLoadDailyNote(currentDailyDate, newType);
+  };
+
+  const handleDailyDateChange = async (newDate) => {
+    setCurrentDailyDate(newDate);
+    await handleLoadDailyNote(newDate);
+  };
+
+  const handleDailyNotesPanelHeightChange = (newHeight) => {
+    setSettings({ ...settings, dailyNotesPanelHeight: newHeight });
+    chrome.storage.local.set({ dailyNotesPanelHeight: newHeight });
   };
 
   const goHome = () => {
@@ -147,7 +214,7 @@ function App() {
         />
 
         {!isEditing && (
-          <ContentBox>
+          <ContentBox hasFooter={true}>
             <div 
               dangerouslySetInnerHTML={renderMarkdown(content)}
               onClick={(e) => {
@@ -170,6 +237,25 @@ function App() {
             />
           </ContentBox>
         )}
+
+        <DailyNotesPanel
+          isOpen={dailyNotesPanelOpen}
+          height={settings.dailyNotesPanelHeight}
+          onHeightChange={handleDailyNotesPanelHeightChange}
+          onDateChange={handleDailyDateChange}
+          currentDate={currentDailyDate}
+          content={dailyNoteContent}
+          onSave={handleSaveDailyNote}
+          noteType={currentNoteType}
+          onNoteTypeChange={handleNoteTypeChange}
+        />
+
+        <Footer
+          isOpen={dailyNotesPanelOpen}
+          onToggle={() => setDailyNotesPanelOpen(!dailyNotesPanelOpen)}
+          height={settings.dailyNotesPanelHeight}
+          noteType={currentNoteType}
+        />
       </Box>
     </ThemeProvider>
   );
