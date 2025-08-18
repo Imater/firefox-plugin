@@ -56,3 +56,43 @@ export const loadCurrentPage = async (currentPage) => {
     return `Error: ${error.message}${error.message.includes('401') ? `\nПроверьте настройки ${method} в панели настроек` : ''}`;
   }
 };
+
+export const saveCurrentPage = async (currentPage, content) => {
+  let result;
+  try {
+    result = await chrome.storage.local.get([
+      'useApi', 
+      'apiKey', 
+      'apiUrl'
+    ]);
+    
+    // Проверяем, какой метод использовать
+    if (result.useApi) {
+      // API метод для сохранения
+      const apiUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
+      const url = `${apiUrl}/${currentPage}`;
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'text/markdown',
+          'Authorization': `Bearer ${result.apiKey || ''}`
+        },
+        body: content
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+      
+      return true;
+    } else {
+      // WebDAV метод для сохранения (если поддерживается)
+      throw new Error('Сохранение через WebDAV не поддерживается. Включите API режим в настройках.');
+    }
+  } catch (error) {
+    const method = result?.useApi ? 'API' : 'WebDAV';
+    throw new Error(`${method} ошибка: ${error.message}`);
+  }
+};

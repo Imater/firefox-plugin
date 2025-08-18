@@ -12,6 +12,7 @@ import darkTheme from './themes/darkTheme';
 import Header from './components/Header';
 import Settings from './components/Settings';
 import ContentBox from './components/styled/ContentBox';
+import MarkdownEditor from './components/MarkdownEditor';
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
@@ -21,7 +22,7 @@ import { useSettings } from './hooks/useSettings';
 import { renderMarkdown } from './utils/markdownRenderer';
 
 // Services
-import { loadCurrentPage } from './services/pageService';
+import { loadCurrentPage, saveCurrentPage } from './services/pageService';
 import { activateOrCreateTab, resolveUrl, cleanupClosedTabs } from './services/tabService';
 
 
@@ -30,6 +31,7 @@ function App() {
   const [content, setContent] = useState('');
   const [currentPage, setCurrentPage] = useState('index.md');
   const [showSettings, setShowSettings] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   
   const { isDarkMode, saveTheme } = useTheme();
   const { settings, setSettings, saveSettings } = useSettings();
@@ -63,6 +65,11 @@ function App() {
   const handleLoadCurrentPage = async () => {
     const text = await loadCurrentPage(currentPage);
     setContent(text);
+  };
+
+  const handleSavePage = async (newContent) => {
+    await saveCurrentPage(currentPage, newContent);
+    setContent(newContent);
   };
 
   const goHome = () => {
@@ -113,6 +120,8 @@ function App() {
         <Header 
           onRefresh={handleLoadCurrentPage}
           onToggleSettings={() => setShowSettings(!showSettings)}
+          onToggleEdit={() => setIsEditing(!isEditing)}
+          isEditing={isEditing}
           currentPage={currentPage}
           onBreadcrumbClick={handleBreadcrumbClick}
           isDarkMode={isDarkMode}
@@ -128,28 +137,39 @@ function App() {
           />
         )}
 
-        <ContentBox>
-          <div 
-            dangerouslySetInnerHTML={renderMarkdown(content)}
-            onClick={(e) => {
-              if (e.target.classList.contains('wiki-link')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const pageName = e.target.getAttribute('data-page');
-                if (pageName) {
-                  handleWikiLinkClick(pageName);
+        <MarkdownEditor
+          content={content}
+          onSave={handleSavePage}
+          onCancel={() => setIsEditing(false)}
+          isEditing={isEditing}
+          onToggleEdit={() => setIsEditing(!isEditing)}
+          currentPage={currentPage}
+        />
+
+        {!isEditing && (
+          <ContentBox>
+            <div 
+              dangerouslySetInnerHTML={renderMarkdown(content)}
+              onClick={(e) => {
+                if (e.target.classList.contains('wiki-link')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const pageName = e.target.getAttribute('data-page');
+                  if (pageName) {
+                    handleWikiLinkClick(pageName);
+                  }
+                } else if (e.target.classList.contains('external-link')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const url = e.target.getAttribute('data-url');
+                  if (url) {
+                    handleExternalLinkClick(url);
+                  }
                 }
-              } else if (e.target.classList.contains('external-link')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const url = e.target.getAttribute('data-url');
-                if (url) {
-                  handleExternalLinkClick(url);
-                }
-              }
-            }}
-          />
-        </ContentBox>
+              }}
+            />
+          </ContentBox>
+        )}
       </Box>
     </ThemeProvider>
   );

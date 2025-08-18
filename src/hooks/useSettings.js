@@ -5,10 +5,10 @@ export const useSettings = () => {
     webdavUrl: 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks',
     username: '',
     password: '',
-    tabRefreshMinutes: 15,
-    useApi: false,
+    tabRefreshMinutes: 8 * 60,
+    useApi: true,
     apiKey: 'bf299179ab0731b5fd2351fe4a3362cc43984e360f258133bb5ec406394c594f',
-    apiUrl: 'http://127.0.0.1:27123/vault',
+    apiUrl: 'http://127.0.0.1:27123/vault/bookmarks',
   });
 
   const loadSettings = async () => {

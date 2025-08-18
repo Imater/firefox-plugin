@@ -3,12 +3,15 @@ import { Box, IconButton, Breadcrumbs, Link } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HomeIcon from '@mui/icons-material/Home';
+import EditIcon from '@mui/icons-material/Edit';
 import TopPanel from './styled/TopPanel';
 import { getBreadcrumbs } from '../utils/breadcrumbs';
 
 const Header = ({ 
   onRefresh, 
   onToggleSettings, 
+  onToggleEdit,
+  isEditing,
   currentPage, 
   onBreadcrumbClick, 
   isDarkMode 
@@ -16,9 +19,18 @@ const Header = ({
   return (
     <TopPanel>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <IconButton onClick={onRefresh} size="small">
-          <RefreshIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', gap: '4px' }}>
+          <IconButton onClick={onRefresh} size="small">
+            <RefreshIcon />
+          </IconButton>
+          <IconButton 
+            onClick={onToggleEdit} 
+            size="small"
+            color={isEditing ? "primary" : "default"}
+          >
+            <EditIcon />
+          </IconButton>
+        </Box>
         <IconButton onClick={onToggleSettings} size="small">
           <SettingsIcon />
         </IconButton>
