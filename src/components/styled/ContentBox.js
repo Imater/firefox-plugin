@@ -25,6 +25,13 @@ const ContentBox = styled(Box)(({ theme }) => ({
     color: theme.palette.mode === 'dark' ? '#81c784' : '#009688',
     fontWeight: 'bold',
   },
+  '& .external-link': {
+    color: theme.palette.mode === 'dark' ? '#64b5f6' : '#0066cc',
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
   '& *': {
     maxWidth: '100%',
     wordWrap: 'break-word',

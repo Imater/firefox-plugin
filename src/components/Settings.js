@@ -43,6 +43,16 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
         fullWidth
         margin="dense"
       />
+      <TextField
+        label="Время обновления вкладок (минуты)"
+        type="number"
+        value={settings.tabRefreshMinutes || 15}
+        onChange={(e) => setSettings({...settings, tabRefreshMinutes: parseInt(e.target.value) || 15})}
+        fullWidth
+        margin="dense"
+        inputProps={{ min: 1, max: 1440 }}
+        helperText="Вкладка будет обновлена, если прошло больше указанного времени с последнего доступа"
+      />
       <Button 
         onClick={onSave} 
         variant="contained" 

@@ -22,6 +22,7 @@ import { renderMarkdown } from './utils/markdownRenderer';
 
 // Services
 import { loadCurrentPage } from './services/pageService';
+import { activateOrCreateTab, resolveUrl, cleanupClosedTabs } from './services/tabService';
 
 
 
@@ -39,6 +40,24 @@ function App() {
 
   useEffect(() => {
     handleLoadCurrentPage();
+  }, []);
+
+  // Очистка записей о закрытых вкладках при загрузке приложения
+  useEffect(() => {
+    cleanupClosedTabs();
+    
+    // Слушаем события закрытия вкладок
+    const handleTabRemoved = (tabId) => {
+      // Удаляем запись о закрытой вкладке
+      chrome.storage.local.remove([`tab_${tabId}`]);
+    };
+    
+    chrome.tabs.onRemoved.addListener(handleTabRemoved);
+    
+    // Очистка слушателя при размонтировании компонента
+    return () => {
+      chrome.tabs.onRemoved.removeListener(handleTabRemoved);
+    };
   }, []);
 
   const handleLoadCurrentPage = async () => {
@@ -61,6 +80,28 @@ function App() {
   const handleSaveSettings = async () => {
     await saveSettings(goHome);
     setShowSettings(false);
+  };
+
+  const handleExternalLinkClick = async (url) => {
+    try {
+      // Получаем базовый URL из настроек
+      const result = await chrome.storage.local.get(['webdavUrl']);
+      const baseUrl = result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks';
+      
+      // Разрешаем URL (преобразуем относительные в абсолютные)
+      const resolvedUrl = resolveUrl(baseUrl, url);
+      
+      // Активируем или создаём вкладку
+      await activateOrCreateTab(resolvedUrl);
+    } catch (error) {
+      console.error('Error handling external link:', error);
+      // Fallback: открываем в новой вкладке
+      try {
+        await chrome.tabs.create({ url: url, active: true });
+      } catch (fallbackError) {
+        console.error('Fallback error:', fallbackError);
+      }
+    }
   };
 
       return (
@@ -97,6 +138,13 @@ function App() {
                 const pageName = e.target.getAttribute('data-page');
                 if (pageName) {
                   handleWikiLinkClick(pageName);
+                }
+              } else if (e.target.classList.contains('external-link')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const url = e.target.getAttribute('data-url');
+                if (url) {
+                  handleExternalLinkClick(url);
                 }
               }
             }}

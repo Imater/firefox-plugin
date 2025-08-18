@@ -1,10 +1,10 @@
 import { marked } from 'marked';
 
 export const renderMarkdown = (content) => {
-  // Настраиваем marked для добавления target="_blank" к ссылкам
+  // Настраиваем marked для добавления специального класса к ссылкам
   const renderer = new marked.Renderer();
   renderer.link = (href, title, text) => {
-    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    return `<a href="${href}" class="external-link" data-url="${href}">${text}</a>`;
   };
 
   // Process wiki links first

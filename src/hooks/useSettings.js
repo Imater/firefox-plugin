@@ -5,14 +5,16 @@ export const useSettings = () => {
     webdavUrl: 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks',
     username: '',
     password: '',
+    tabRefreshMinutes: 15,
   });
 
   const loadSettings = async () => {
-    const result = await chrome.storage.local.get(['webdavUrl', 'username', 'password']);
+    const result = await chrome.storage.local.get(['webdavUrl', 'username', 'password', 'tabRefreshMinutes']);
     setSettings({
       webdavUrl: result.webdavUrl || 'file://C:\\Users\\eugen\\coding\\obsidian\\imater-2024-2\\bookmarks',
       username: result.username || '',
       password: result.password || '',
+      tabRefreshMinutes: result.tabRefreshMinutes || 15,
     });
   };
 
@@ -22,6 +24,7 @@ export const useSettings = () => {
       webdavUrl: normalizedUrl,
       username: settings.username,
       password: settings.password,
+      tabRefreshMinutes: settings.tabRefreshMinutes || 15,
     });
     goHome();
   };
