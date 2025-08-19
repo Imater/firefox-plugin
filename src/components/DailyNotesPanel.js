@@ -9,6 +9,7 @@ import {
   Typography,
   Button
 } from '@mui/material';
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useAppDispatch } from '../store/hooks';
 import { updateNote } from '../store/calendarNotesSlice';
 import { 
@@ -326,6 +327,45 @@ const DailyNotesPanel = ({
     setIsEditing(false);
   };
 
+  // Обработка drag & drop для галочек
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const { source, destination } = result;
+    
+    // Если перетаскиваем в тот же день, ничего не делаем
+    if (source.droppableId === destination.droppableId) return;
+
+    // Получаем текст задачи из перетаскиваемого элемента
+    const taskText = result.draggableId;
+    
+    // Удаляем задачу из исходного дня
+    const currentContent = previewContent || content;
+    const checkboxPattern = new RegExp(`^- \\[[ xX]\\] (.+)$`, 'gm');
+    const newContent = currentContent.replace(checkboxPattern, (match, text) => {
+      if (text === taskText) {
+        return ''; // Удаляем строку
+      }
+      return match;
+    }).replace(/\n\s*\n/g, '\n').trim(); // Убираем пустые строки
+
+    // Сохраняем изменения в текущем дне
+    onSave(newContent);
+    dispatch(updateNote({ date: currentDate, content: newContent }));
+
+    // Добавляем задачу в целевой день
+    const targetDate = new Date(destination.droppableId);
+    const targetDateString = targetDate.toDateString();
+    
+    // Здесь нужно будет добавить логику для добавления задачи в целевой день
+    // Пока просто показываем уведомление
+    setSnackbar({ 
+      open: true, 
+      message: `Задача "${taskText}" перемещена на ${targetDate.toLocaleDateString()}`, 
+      severity: 'info' 
+    });
+  };
+
   // Обработка изменения размера панели
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -374,7 +414,8 @@ const DailyNotesPanel = ({
   if (!isOpen) return null;
 
   return (
-    <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing}>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing}>
       <ResizeHandle onMouseDown={handleMouseDown}>
         <DragIcon className="drag-icon" />
       </ResizeHandle>
@@ -607,6 +648,7 @@ const DailyNotesPanel = ({
         </Alert>
       </Snackbar>
     </PanelContainer>
+    </DragDropContext>
   );
 };
 

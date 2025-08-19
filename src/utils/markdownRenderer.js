@@ -44,7 +44,7 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
       const isChecked = checked.toLowerCase() === 'x';
       const className = `task-checkbox ${isChecked ? 'checked' : 'unchecked'}`;
       const checkboxSymbol = isChecked ? '☑' : '☐';
-      return `<span class="${className}" data-checked="${isChecked}" data-text="${text}">${checkboxSymbol} ${text}</span>`;
+      return `<span class="${className}" data-checked="${isChecked}" data-text="${text}" draggable="true" data-draggable-id="${text}">${checkboxSymbol} ${text}</span>`;
     }
   );
 
