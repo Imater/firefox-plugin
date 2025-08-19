@@ -37,6 +37,17 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
     (match, p1) => `<a href="#" class="wiki-link" data-page="${p1}">${p1}</a>`
   );
 
+  // Process checkboxes
+  const withCheckboxes = withWikiLinks.replace(
+    /^- \[([ xX])\] (.+)$/gm,
+    (match, checked, text) => {
+      const isChecked = checked.toLowerCase() === 'x';
+      const className = `task-checkbox ${isChecked ? 'checked' : 'unchecked'}`;
+      const checkboxSymbol = isChecked ? '☑' : '☐';
+      return `<span class="${className}" data-checked="${isChecked}" data-text="${text}">${checkboxSymbol} ${text}</span>`;
+    }
+  );
+
   // Настраиваем marked для правильной обработки переносов строк
   marked.setOptions({
     breaks: true, // Преобразует \n в <br>
@@ -44,7 +55,7 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
     renderer: renderer
   });
 
-  let processedContent = marked.parse(withWikiLinks);
+  let processedContent = marked.parse(withCheckboxes);
 
   // Добавляем горячие клавиши если включены
   if (showHotkeys) {
@@ -171,6 +182,16 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
         return `<a href="${href}" class="external-link" data-url="${url}" data-hotkey="${symbol}">${linkText} ${createHotkeySymbol(symbol, url)}</a>`;
       }
     );
+    
+    // Добавляем символы к галочкам
+    processedContent = processedContent.replace(
+      /<span class="task-checkbox ([^"]+)" data-checked="([^"]+)" data-text="([^"]+)">([^<]+)<\/span>/g,
+      (match, className, checked, text, content) => {
+        const symbol = getUniqueSymbol(hotkeyIndex);
+        hotkeyIndex++;
+        return `<span class="task-checkbox ${className}" data-checked="${checked}" data-text="${text}" data-hotkey="${symbol}">${content} ${createHotkeySymbol(symbol)}</span>`;
+      }
+    );
   }
 
   return { __html: processedContent };
@@ -186,9 +207,22 @@ export const countHotkeyTargets = (content) => {
     /\[\[([^\]]+)\]\]/g,
     (match, p1) => `<a href="#" class="wiki-link" data-page="${p1}">${p1}</a>`
   );
+  
+  // Process checkboxes for counting
+  const withCheckboxes = withWikiLinks.replace(
+    /^- \[([ xX])\] (.+)$/gm,
+    (match, checked, text) => {
+      const isChecked = checked.toLowerCase() === 'x';
+      const className = `task-checkbox ${isChecked ? 'checked' : 'unchecked'}`;
+      const checkboxSymbol = isChecked ? '☑' : '☐';
+      return `<span class="${className}" data-checked="${isChecked}" data-text="${text}">${checkboxSymbol} ${text}</span>`;
+    }
+  );
+  
   marked.setOptions({ breaks: true, gfm: true, renderer });
-  const processedContent = marked.parse(withWikiLinks);
+  const processedContent = marked.parse(withCheckboxes);
   const wikiCount = (processedContent.match(/<a [^>]*class="wiki-link"[^>]*>/g) || []).length;
   const extCount = (processedContent.match(/<a [^>]*class="external-link"[^>]*>/g) || []).length;
-  return wikiCount + extCount;
+  const checkboxCount = (processedContent.match(/<span [^>]*class="task-checkbox[^>]*>/g) || []).length;
+  return wikiCount + extCount + checkboxCount;
 };

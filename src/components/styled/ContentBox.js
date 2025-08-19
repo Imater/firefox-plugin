@@ -80,6 +80,29 @@ const ContentBox = styled(Box)(({ theme, hasFooter, dailyNotesPanelOpen, dailyNo
     maxWidth: '100%',
     wordWrap: 'break-word',
   },
+  '& .task-checkbox': {
+    cursor: 'pointer',
+    userSelect: 'none',
+    display: 'inline-block',
+    padding: '2px 4px',
+    borderRadius: '3px',
+    transition: 'background-color 0.2s ease',
+    '& *': {
+      cursor: 'pointer',
+    },
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+      opacity: 0.9,
+    },
+  },
+  '& .task-checkbox.checked': {
+    color: theme.palette.mode === 'dark' ? '#81c784' : '#2e7d32',
+    fontWeight: 'bold',
+    textDecoration: 'line-through',
+  },
+  '& .task-checkbox.unchecked': {
+    color: theme.palette.text.primary,
+  },
 }));
 
 export default ContentBox;

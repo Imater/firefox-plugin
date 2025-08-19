@@ -53,6 +53,8 @@ function App() {
   const [openTabs, setOpenTabs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [scrollToTodayFunction, setScrollToTodayFunction] = useState(null);
+  const [scrollToDateFunction, setScrollToDateFunction] = useState(null);
+  const [calendarNotePreview, setCalendarNotePreview] = useState('');
 
   
   const { isDarkMode, saveTheme } = useTheme();
@@ -205,6 +207,9 @@ function App() {
               } else if (element.classList.contains('external-link')) {
                 const url = element.getAttribute('data-url');
                 if (url) handleExternalLinkClick(url);
+              } else if (element.classList.contains('task-checkbox')) {
+                // Обработка галочек
+                element.click();
               }
               break;
             }
@@ -284,6 +289,25 @@ function App() {
              resetBuffer();
              return;
            }
+           
+           // Обработка стрелок вверх и вниз для навигации по ежедневным заметкам
+           if ((key === 'arrowup' || key === 'up') && !isEditing && !isDailyNotesEditing) {
+             e.preventDefault();
+             const newDate = new Date(currentDailyDate);
+             newDate.setDate(newDate.getDate() - 1);
+             handleDailyDateChange(newDate);
+             resetBuffer();
+             return;
+           }
+           
+           if ((key === 'arrowdown' || key === 'down') && !isEditing && !isDailyNotesEditing) {
+             e.preventDefault();
+             const newDate = new Date(currentDailyDate);
+             newDate.setDate(newDate.getDate() + 1);
+             handleDailyDateChange(newDate);
+             resetBuffer();
+             return;
+           }
       
            // Игнорируем модификаторы
            if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -322,17 +346,20 @@ function App() {
            });
            console.log(`Есть более длинные префиксы: ${hasLongerPrefix ? 'ДА' : 'НЕТ'}`);
 
-           const triggerElement = (el) => {
-             e.preventDefault();
-             if (el.classList.contains('wiki-link')) {
-               const pageName = el.getAttribute('data-page');
-               if (pageName) handleWikiLinkClick(pageName);
-             } else if (el.classList.contains('external-link')) {
-               const url = el.getAttribute('data-url');
-               if (url) handleExternalLinkClick(url);
-             }
-             resetBuffer();
-           };
+                     const triggerElement = (el) => {
+            e.preventDefault();
+            if (el.classList.contains('wiki-link')) {
+              const pageName = el.getAttribute('data-page');
+              if (pageName) handleWikiLinkClick(pageName);
+            } else if (el.classList.contains('external-link')) {
+              const url = el.getAttribute('data-url');
+              if (url) handleExternalLinkClick(url);
+            } else if (el.classList.contains('task-checkbox')) {
+              // Обработка галочек
+              el.click();
+            }
+            resetBuffer();
+          };
 
            // Если есть точное совпадение - срабатываем сразу
            if (exactMatch) {
@@ -471,7 +498,7 @@ function App() {
                flexDirection: 'column',
                overflowX: 'hidden',
                overflowY: 'hidden',
-               marginRight: settings.showCalendarPanel ? '60px' : '0px' // Отступ для календарной панели
+               marginRight: settings.showCalendarPanel ? '100px' : '0px' // Отступ для календарной панели
              }}>
         <Header 
           onRefresh={handleLoadCurrentPage}
@@ -568,7 +595,9 @@ function App() {
                  currentHotkeyBuffer={currentHotkeyBuffer}
                  onLinkHover={setHoveredLink}
                  openTabs={openTabs}
-                 onTodayClick={scrollToTodayFunction}
+                 onTodayClick={scrollToTodayFunction ? () => scrollToTodayFunction() : null}
+                 onScrollToDate={scrollToDateFunction ? (date) => scrollToDateFunction(date) : null}
+                 notePreview={calendarNotePreview}
                />
 
         <Footer
@@ -590,6 +619,9 @@ function App() {
                    onDateSelect={handleDateSelect}
                    currentDate={selectedDate}
                    onTodayClick={setScrollToTodayFunction}
+                   onScrollToDate={setScrollToDateFunction}
+                   settings={settings}
+                   onNotePreview={setCalendarNotePreview}
                  />
                )}
 
@@ -600,7 +632,6 @@ function App() {
 
 
 
-const root = createRoot(document.getElementById('root'));
-root.render(<App />);
+// Provider moved to index.js
 
 export default App;

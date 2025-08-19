@@ -9,6 +9,8 @@ import {
   Typography,
   Button
 } from '@mui/material';
+import { useAppDispatch } from '../store/hooks';
+import { updateNote } from '../store/calendarNotesSlice';
 import { 
   ChevronLeft as YesterdayIcon,
   ChevronRight as TomorrowIcon,
@@ -83,7 +85,7 @@ const ContentContainer = styled(Box)(({ theme }) => ({
     height: '100%',
     '& .MuiInputBase-root': {
       height: '100%',
-      fontSize: '10px',
+      fontSize: '11px',
       fontFamily: 'monospace',
     },
     '& .MuiInputBase-input': {
@@ -216,7 +218,9 @@ const DailyNotesPanel = ({
   currentHotkeyBuffer = '',
   onLinkHover = null,
   openTabs = [],
-  onTodayClick = null
+  onTodayClick = null,
+  onScrollToDate = null,
+  notePreview = ''
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
@@ -225,8 +229,10 @@ const DailyNotesPanel = ({
   const [isResizing, setIsResizing] = useState(false);
   const [startY, setStartY] = useState(0);
   const [startHeight, setStartHeight] = useState(0);
+  const [previewContent, setPreviewContent] = useState('');
   
   const panelRef = useRef(null);
+  const dispatch = useAppDispatch();
 
   // Обновляем editContent при изменении content
   useEffect(() => {
@@ -240,6 +246,15 @@ const DailyNotesPanel = ({
     }
   }, [isEditing, onEditingChange]);
 
+  // Обрабатываем превью из календаря
+  useEffect(() => {
+    if (notePreview && !isEditing) {
+      setPreviewContent(notePreview);
+    } else {
+      setPreviewContent('');
+    }
+  }, [notePreview, isEditing]);
+
   // Обработка изменения даты
   const handleDateChange = (direction) => {
     const today = new Date(currentDate);
@@ -252,10 +267,6 @@ const DailyNotesPanel = ({
         break;
       case 'today':
         newDate = new Date();
-        // Вызываем функцию скролла к сегодняшнему дню в календаре
-        if (onTodayClick) {
-          onTodayClick();
-        }
         break;
       case 'tomorrow':
         newDate = new Date(today);
@@ -263,6 +274,16 @@ const DailyNotesPanel = ({
         break;
       default:
         return;
+    }
+    
+    console.log('DailyNotesPanel: Date changed to:', newDate.toDateString(), 'direction:', direction);
+    
+    // Вызываем функцию скролла календаря к выбранной дате
+    if (onScrollToDate) {
+      console.log('DailyNotesPanel: Calling onScrollToDate with:', newDate);
+      onScrollToDate(newDate);
+    } else {
+      console.log('DailyNotesPanel: onScrollToDate is not available');
     }
     
     onDateChange(newDate);
@@ -278,6 +299,10 @@ const DailyNotesPanel = ({
     setIsSaving(true);
     try {
       await onSave(editContent);
+      
+      // Обновляем заметку в Redux store
+      dispatch(updateNote({ date: currentDate, content: editContent }));
+      
       setSnackbar({ 
         open: true, 
         message: 'Сохранено успешно!', 
@@ -422,7 +447,7 @@ const DailyNotesPanel = ({
                 onClick={handleSave}
                 disabled={isSaving}
                 size="small"
-                sx={{ fontSize: '10px', padding: '2px 8px', minHeight: '24px' }}
+                sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
               >
                 {isSaving ? 'Сохранение...' : 'Сохранить'}
               </Button>
@@ -432,7 +457,7 @@ const DailyNotesPanel = ({
                 onClick={handleCancel}
                 disabled={isSaving}
                 size="small"
-                sx={{ fontSize: '10px', padding: '2px 8px', minHeight: '24px' }}
+                sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
               >
                 Отмена
               </Button>
@@ -468,7 +493,14 @@ const DailyNotesPanel = ({
         ) : (
           <div 
             className="markdown-content"
-            dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && showHotkeys, 20, lettersOnlyHotkeys, currentHotkeyBuffer, openTabs)} // DailyNotes начинается с индекса 20 для уникальности
+            dangerouslySetInnerHTML={renderMarkdown(
+              previewContent || content, 
+              !isEditing && showHotkeys, 
+              20, 
+              lettersOnlyHotkeys, 
+              currentHotkeyBuffer, 
+              openTabs
+            )} // DailyNotes начинается с индекса 20 для уникальности
             onClick={(e) => {
               if (e.target.classList.contains('wiki-link')) {
                 e.preventDefault();
@@ -492,6 +524,43 @@ const DailyNotesPanel = ({
                     window.handleExternalLinkClick(url);
                   }
                 }
+              } else if (e.target.classList.contains('task-checkbox') || e.target.closest('.task-checkbox')) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const checkboxElement = e.target.classList.contains('task-checkbox') ? e.target : e.target.closest('.task-checkbox');
+                const isCurrentlyChecked = checkboxElement.getAttribute('data-checked') === 'true';
+                const taskText = checkboxElement.getAttribute('data-text');
+                
+                // Переключаем состояние галочки
+                const newChecked = !isCurrentlyChecked;
+                const newSymbol = newChecked ? '☑' : '☐';
+                
+                // Обновляем отображение
+                checkboxElement.setAttribute('data-checked', newChecked.toString());
+                checkboxElement.className = `task-checkbox ${newChecked ? 'checked' : 'unchecked'}`;
+                
+                // Сохраняем горячую клавишу если она есть
+                const hotkey = checkboxElement.getAttribute('data-hotkey');
+                const hotkeySymbol = hotkey ? ` <span class="hotkey-symbol">${hotkey.toUpperCase()}</span>` : '';
+                checkboxElement.innerHTML = `${newSymbol} ${taskText}${hotkeySymbol}`;
+                
+                // Обновляем контент и сохраняем
+                const currentContent = previewContent || content;
+                const checkboxPattern = new RegExp(`^- \\[${isCurrentlyChecked ? '[xX]' : ' '}\\] (.+)$`, 'gm');
+                const replacement = `- [${newChecked ? 'x' : ' '}] $1`;
+                const newContent = currentContent.replace(checkboxPattern, (match, text) => {
+                  if (text === taskText) {
+                    return replacement.replace('$1', text);
+                  }
+                  return match;
+                });
+                
+                // Сохраняем изменения
+                onSave(newContent);
+                
+                // Обновляем заметку в Redux store
+                dispatch(updateNote({ date: currentDate, content: newContent }));
               }
             }}
             onMouseOver={(e) => {

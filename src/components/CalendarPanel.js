@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Box, IconButton } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { styled } from '@mui/material/styles';
 import { VariableSizeList as List } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { 
+  fetchMultipleNotes, 
+  selectTaskCountsByDate, 
+  selectNoteContentByDate,
+  selectIsLoading 
+} from '../store/calendarNotesSlice';
 
 const CalendarContainer = styled(Box)(({ theme }) => ({
   position: 'fixed',
   right: 0,
   top: 0,
-  width: '60px',
+  width: '100px',
   height: '100vh',
   backgroundColor: theme.palette.background.paper,
-  borderLeft: `1px solid ${theme.palette.divider}`,
   display: 'flex',
   flexDirection: 'column',
   zIndex: 1000,
@@ -26,7 +32,7 @@ const CalendarContainer = styled(Box)(({ theme }) => ({
 }));
 
 const ScrollButton = styled(IconButton)(({ theme }) => ({
-  width: '60px',
+  width: '100px',
   height: '30px',
   borderRadius: 0,
   color: theme.palette.text.primary,
@@ -37,48 +43,89 @@ const ScrollButton = styled(IconButton)(({ theme }) => ({
 
 
 
-const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected }) => ({
-  width: '60px',
-  height: '60px',
+const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected, isFuture, isPast }) => ({
+  width: '100px',
+  height: '100px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
-  fontSize: '12px',
+  fontSize: '13px',
   fontWeight: 'bold',
-  borderBottom: `1px solid ${theme.palette.divider}`,
+  borderBottom: `1px solid ${theme.palette.mode === 'dark' ? '#666666' : '#999999'}`,
+  borderTop: `1px solid ${theme.palette.mode === 'dark' ? '#cccccc' : '#e0e0e0'}`,
+  borderLeft: isSelected ? 'none' : `1px solid ${theme.palette.mode === 'dark' ? '#666666' : '#999999'}`,
   flexShrink: 0,
   backgroundColor: isToday 
-    ? theme.palette.warning.main 
+    ? theme.palette.background.paper
     : isSelected 
-    ? theme.palette.primary.light 
-    : isWeekend 
-    ? theme.palette.action.disabledBackground
-    : theme.palette.success.light,
+    ? theme.palette.background.default
+    : theme.palette.mode === 'dark' ? '#000000' : '#f5f5f5',
   color: isToday 
-    ? theme.palette.warning.contrastText 
-    : isWeekend 
+    ? theme.palette.warning.main
+    : isFuture 
+    ? theme.palette.mode === 'dark' ? '#ffffff' : '#666666'
+    : isPast
     ? theme.palette.text.disabled
     : theme.palette.text.primary,
   '&:hover': {
     backgroundColor: theme.palette.action.hover,
   },
   '& .day-number': {
-    fontSize: '16px',
+    fontSize: '19px',
     fontWeight: 'bold',
     lineHeight: 1,
   },
   '& .day-name': {
-    fontSize: '9px',
+    fontSize: '11px',
     textTransform: 'uppercase',
     lineHeight: 1,
-    marginTop: '3px',
+    marginTop: '2px',
+    color: isWeekend ? (isPast ? theme.palette.error.dark : theme.palette.error.main) : 'inherit',
+  },
+  '& .days-difference': {
+    fontSize: '11px',
+    lineHeight: 1,
+    marginTop: '1px',
+    opacity: 0.9,
+    fontWeight: 'bold',
+  },
+  '& .tasks-indicator': {
+    position: 'absolute',
+    bottom: '4px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontSize: '11px',
+    fontWeight: 'normal',
+    textAlign: 'center',
+    lineHeight: 1,
+    color: isToday ? theme.palette.warning.main : theme.palette.text.secondary,
+  },
+  '& .tasks-text': {
+    fontSize: '11px',
+    lineHeight: 1,
+  },
+  '& .checked-count': {
+    textDecoration: 'line-through',
+    opacity: 0.7,
+  },
+  '& .unchecked-tasks': {
+    color: 'inherit',
+    fontWeight: 'normal',
+  },
+  '& .checked-tasks': {
+    color: 'inherit',
+    fontWeight: 'bold',
+    opacity: 0.8,
+  },
+  '& .separator': {
+    margin: '0 1px',
   },
 }));
 
 const MonthHeader = styled(Box)(({ theme }) => ({
-  width: '60px',
+  width: '100px',
   height: '50px',
   display: 'flex',
   flexDirection: 'column',
@@ -104,12 +151,16 @@ const MonthHeader = styled(Box)(({ theme }) => ({
   },
 }));
 
-const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
+const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate, settings, onNotePreview }) => {
   const [items, setItems] = useState([]);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [isNextPageLoading, setIsNextPageLoading] = useState(false);
   const listRef = useRef(null);
   const infiniteLoaderRef = useRef(null);
+  
+  // Redux hooks
+  const dispatch = useAppDispatch();
+  const isLoading = useAppSelector(selectIsLoading);
 
   // Проверяем, является ли день выбранным
   const isSelected = (date) => {
@@ -175,6 +226,35 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
     return date.toDateString() === today.toDateString();
   };
 
+  // Проверяем, является ли день будущим
+  const isFuture = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate > today;
+  };
+
+  // Проверяем, является ли день прошлым
+  const isPast = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate < today;
+  };
+
+  // Вычисляем разность дней от сегодня
+  const getDaysDifference = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0);
+    const diffTime = checkDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   // Форматируем дату для tooltip
   const formatDate = (date) => {
     const day = String(date.getDate()).padStart(2, '0');
@@ -188,6 +268,8 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
   const handleDayClick = (date) => {
     onDateSelect(date);
   };
+
+  // Функция для буферизации заметок больше не нужна - все заметки загружаются при инициализации
 
   // Загружаем больше элементов
   const loadMoreItems = useCallback(async (startIndex, stopIndex) => {
@@ -219,8 +301,8 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
   // Получаем высоту элемента
   const getItemSize = useCallback((index) => {
     const item = items[index];
-    if (!item) return 60; // Высота по умолчанию
-    return item.type === 'month' ? 50 : 60;
+    if (!item) return 100; // Высота по умолчанию
+    return item.type === 'month' ? 50 : 100;
   }, [items]);
 
   // Текущий видимый индекс
@@ -250,6 +332,12 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
   // Обработчик изменения видимых элементов
   const handleItemsRendered = useCallback(({ visibleStartIndex, visibleStopIndex }) => {
     setCurrentVisibleIndex(Math.floor((visibleStartIndex + visibleStopIndex) / 2));
+    
+    // Теперь все заметки загружаются при инициализации, поэтому дополнительная буферизация не нужна
+    console.log('Calendar: Visible items changed:', {
+      visibleStartIndex,
+      visibleStopIndex
+    });
   }, []);
 
   // Touch-обработчики для планшетов
@@ -284,31 +372,53 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
     }
   }, [touchStart, touchEnd, currentVisibleIndex, items.length]);
 
-  // Функция для скролла к сегодняшнему дню
-  const scrollToToday = useCallback(() => {
-    if (listRef.current) {
-      const todayDate = new Date();
-      const todayIndex = items.findIndex(item => 
-        item.type === 'day' && item.date.toDateString() === todayDate.toDateString()
-      );
-      if (todayIndex !== -1) {
-        listRef.current.scrollToItem(todayIndex, 'center');
-        setCurrentVisibleIndex(todayIndex);
-      }
+  // Функция для скролла к любой дате
+  const scrollToDate = useCallback((targetDate) => {
+    if (!targetDate || !listRef.current || !items || items.length === 0) {
+      console.log('Calendar scrollToDate: Invalid parameters', { 
+        targetDate: !!targetDate, 
+        listRef: !!listRef.current, 
+        itemsLength: items?.length 
+      });
+      return;
+    }
+
+    const targetIndex = items.findIndex(item => 
+      item && item.type === 'day' && item.date && item.date.toDateString() === targetDate.toDateString()
+    );
+    
+    if (targetIndex !== -1) {
+      listRef.current.scrollToItem(targetIndex, 'center');
+      setCurrentVisibleIndex(targetIndex);
+      console.log('Calendar scrolled to:', targetDate.toDateString(), 'index:', targetIndex);
+    } else {
+      console.log('Date not found in calendar items:', targetDate.toDateString(), 'available items:', items.length);
     }
   }, [items]);
 
-  // Экспортируем функцию скролла к сегодняшнему дню
+  // Функция для скролла к сегодняшнему дню
+  const scrollToToday = useCallback(() => {
+    const todayDate = new Date();
+    scrollToDate(todayDate);
+  }, [scrollToDate]);
+
+  // Экспортируем функции скролла
   useEffect(() => {
     if (onTodayClick) {
       onTodayClick(scrollToToday);
     }
   }, [onTodayClick, scrollToToday]);
 
+  useEffect(() => {
+    if (onScrollToDate) {
+      onScrollToDate(scrollToDate);
+    }
+  }, [onScrollToDate, scrollToDate]);
+
   // Компонент для рендера элемента списка
   const ItemRenderer = useCallback(({ index, style }) => {
     const item = items[index];
-    if (!item) return <div style={style}>Loading...</div>;
+    if (!item || !item.date) return <div style={style}>Loading...</div>;
 
     if (item.type === 'month') {
       return (
@@ -324,50 +434,122 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
         </div>
       );
     } else {
+      // Получаем данные из Redux store
+      const taskCounts = useAppSelector(state => selectTaskCountsByDate(state, item.date));
+      const noteContent = useAppSelector(state => selectNoteContentByDate(state, item.date));
+      const { unchecked, checked } = taskCounts;
+      const hasTasks = unchecked > 0 || checked > 0;
+      
+      // Отладочная информация для сегодняшней даты
+      const today = new Date();
+      if (item.date.toDateString() === today.toDateString()) {
+        console.log('Today calendar item (Redux):', {
+          date: item.date.toDateString(),
+          noteContent: noteContent.substring(0, 100) + '...',
+          taskCounts: { unchecked, checked },
+          hasTasks
+        });
+      }
+      
       return (
         <div style={style}>
-          <DaySquare
-            isToday={isToday(item.date)}
-            isWeekend={isWeekend(item.date)}
-            isSelected={isSelected(item.date)}
-            onClick={() => handleDayClick(item.date)}
-            title={formatDate(item.date)}
+          <Tooltip
+            title={noteContent ? `${formatDate(item.date)}\n\nПревью заметки:\n${noteContent.substring(0, 200)}${noteContent.length > 200 ? '...' : ''}` : `${formatDate(item.date)}\n\nНет заметки`}
+            placement="left"
+            arrow
           >
-            <div className="day-number">
-              {item.date.getDate()}
-            </div>
-            <div className="day-name">
-              {getDayName(item.date)}
-            </div>
-          </DaySquare>
+            <DaySquare
+              isToday={isToday(item.date)}
+              isWeekend={isWeekend(item.date)}
+              isSelected={isSelected(item.date)}
+              isFuture={isFuture(item.date)}
+              isPast={isPast(item.date)}
+              onClick={() => handleDayClick(item.date)}
+              onMouseEnter={() => onNotePreview && onNotePreview(noteContent)}
+              onMouseLeave={() => onNotePreview && onNotePreview('')}
+            >
+              <div className="day-number">
+                {item.date.getDate()}
+              </div>
+              <div className="day-name">
+                {getDayName(item.date)}
+              </div>
+              <div className="days-difference">
+                {(() => {
+                  const diff = getDaysDifference(item.date);
+                  if (diff === 0) return '';
+                  return diff > 0 ? `+${diff}дн` : `${diff}дн`;
+                })()}
+              </div>
+              {hasTasks && (
+                <div className="tasks-indicator">
+                  <div className="tasks-text">
+                    {unchecked > 0 && (
+                      <span className="unchecked-tasks">
+                        ☐ {unchecked}
+                      </span>
+                    )}
+                    {unchecked > 0 && checked > 0 && (
+                      <span className="separator"> </span>
+                    )}
+                    {checked > 0 && (
+                      <span className="checked-tasks">
+                        ☑ {checked}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+            </DaySquare>
+          </Tooltip>
         </div>
       );
     }
-  }, [items, isToday, isWeekend, isSelected, handleDayClick, formatDate, getDayName, getMonthName]);
+  }, [items, isToday, isWeekend, isSelected, handleDayClick, formatDate, getDayName, getMonthName, onNotePreview]);
 
   // Инициализация
   useEffect(() => {
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 60); // Начинаем с 60 дней назад
+    const initializeCalendar = async () => {
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 60); // Начинаем с 60 дней назад
 
-    const initialItems = generateItems(startDate, 120); // Генерируем 120 дней (4 месяца)
-    setItems(initialItems);
-    
-    // Скроллим к сегодняшнему дню через небольшую задержку
-    setTimeout(() => {
-      if (listRef.current) {
-        const todayDate = new Date();
-        const todayIndex = initialItems.findIndex(item => 
-          item.type === 'day' && item.date.toDateString() === todayDate.toDateString()
-        );
-        if (todayIndex !== -1) {
-          listRef.current.scrollToItem(todayIndex, 'center');
-          setCurrentVisibleIndex(todayIndex);
+      const initialItems = generateItems(startDate, 120); // Генерируем 120 дней (4 месяца)
+      setItems(initialItems);
+      
+      // Загружаем все заметки через Redux
+      if (settings && settings.useApi) {
+        const dayItems = initialItems.filter(item => item.type === 'day');
+        const dates = dayItems.map(item => item.date);
+        
+        console.log('Calendar: Loading all notes for dates:', dates.map(d => d.toDateString()));
+        
+        try {
+          await dispatch(fetchMultipleNotes({ dates, settings }));
+          console.log('Calendar: All notes loaded via Redux');
+        } catch (error) {
+          console.error('Calendar: Error loading initial notes:', error);
         }
       }
-    }, 100);
-  }, [generateItems]);
+      
+      // Скроллим к сегодняшнему дню через небольшую задержку
+      setTimeout(() => {
+        if (listRef.current && initialItems && initialItems.length > 0) {
+          const todayDate = new Date();
+          const todayIndex = initialItems.findIndex(item => 
+            item && item.type === 'day' && item.date && item.date.toDateString() === todayDate.toDateString()
+          );
+          if (todayIndex !== -1) {
+            listRef.current.scrollToItem(todayIndex, 'center');
+            setCurrentVisibleIndex(todayIndex);
+          }
+        }
+      }, 100);
+    };
+    
+    initializeCalendar();
+  }, [generateItems, settings, dispatch]);
 
     return (
     <CalendarContainer
@@ -378,6 +560,23 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
       <ScrollButton onClick={handleScrollUp} size="small">
         <KeyboardArrowUpIcon />
       </ScrollButton>
+      
+      {isLoading && (
+        <Box sx={{
+          position: 'absolute',
+          top: '30px',
+          left: '0',
+          right: '0',
+          textAlign: 'center',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          padding: '2px',
+          fontSize: '8px',
+          zIndex: 1001
+        }}>
+          Загрузка заметок...
+        </Box>
+      )}
       
       <Box sx={{ 
         flex: 1,

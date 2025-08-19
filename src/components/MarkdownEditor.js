@@ -22,6 +22,9 @@ const EditorContainer = styled(Box)(({ theme }) => ({
   color: theme.palette.text.primary,
   '& .MuiTextField-root': {
     width: '100%',
+    '& .MuiInputBase-root': {
+      fontSize: '11px',
+    },
   },
   '& .editor-toolbar': {
     display: 'flex',

@@ -320,3 +320,126 @@ export const loadYearlyNote = async (date) => {
     throw new Error(`Ошибка загрузки ежегодной заметки: ${error.message}`);
   }
 };
+
+// Функция для загрузки заметки по дате
+export const loadNoteByDate = async (date, settings) => {
+  if (!settings.useApi) {
+    console.log('API disabled, cannot load note by date');
+    return null;
+  }
+
+  try {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    // Используем правильный URL для Periodic Notes API
+    const periodicApiUrl = settings.periodicApiUrl || 'http://127.0.0.1:27123';
+    const url = `${periodicApiUrl}/periodic/daily/${year}/${month}/${day}/`;
+    console.log('Fetching daily note from URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${settings.apiKey}`,
+        'accept': 'application/vnd.olrapi.note+json'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('API response for date:', `${year}-${month}-${day}`, data);
+      return data.content || '';
+    } else if (response.status === 404) {
+      // Заметка не существует, возвращаем пустую строку
+      console.log('Note not found for date:', `${year}-${month}-${day}`);
+      return '';
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error loading note by date:', error);
+    return null;
+  }
+};
+
+// Функция для подсчета непроставленных галочек в заметке
+export const countUncheckedTasks = (content) => {
+  if (!content) return { unchecked: 0, checked: 0 };
+  
+  const lines = content.split('\n');
+  let unchecked = 0;
+  let checked = 0;
+  
+  console.log('Counting tasks in content:', content.substring(0, 200) + '...');
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    console.log('Processing line:', `"${trimmedLine}"`);
+    
+    // Ищем строки, которые содержат галочки (с учетом возможных пробелов)
+    if (trimmedLine.match(/^- \[ \]/)) {
+      unchecked++;
+      console.log('Found unchecked task:', trimmedLine);
+    } else if (trimmedLine.match(/^- \[[xX]\]/)) {
+      checked++;
+      console.log('Found checked task:', trimmedLine);
+    }
+  }
+  
+  console.log('Task count result:', { unchecked, checked });
+  return { unchecked, checked };
+};
+
+// Функция для буферизации заметок по датам
+export const bufferNotesByDates = async (dates, settings) => {
+  const notesBuffer = new Map();
+  
+  // Сортируем даты: сначала сегодня, потом будущие, потом прошлые
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const sortedDates = dates.sort((a, b) => {
+    const aDate = new Date(a);
+    const bDate = new Date(b);
+    aDate.setHours(0, 0, 0, 0);
+    bDate.setHours(0, 0, 0, 0);
+    
+    // Сегодняшняя дата имеет приоритет
+    if (aDate.getTime() === today.getTime()) return -1;
+    if (bDate.getTime() === today.getTime()) return 1;
+    
+    // Будущие даты идут после сегодняшней
+    if (aDate > today && bDate <= today) return -1;
+    if (bDate > today && aDate <= today) return 1;
+    
+    // Среди будущих дат - по возрастанию
+    if (aDate > today && bDate > today) {
+      return aDate - bDate;
+    }
+    
+    // Среди прошлых дат - по убыванию (более недавние сначала)
+    return bDate - aDate;
+  });
+  
+  // Загружаем заметки
+  for (const date of sortedDates) {
+    try {
+      const content = await loadNoteByDate(date, settings);
+      const dateKey = date.toDateString();
+      console.log(`Buffer: Processing date ${dateKey}, content length: ${content?.length || 0}`);
+      
+      if (content !== null) {
+        notesBuffer.set(dateKey, content);
+        console.log(`Buffer: Added note for ${dateKey}, buffer size now: ${notesBuffer.size}`);
+      } else {
+        console.log(`Buffer: No content for ${dateKey}`);
+      }
+    } catch (error) {
+      console.error(`Error loading note for ${date.toDateString()}:`, error);
+    }
+  }
+  
+  console.log('Buffer: Final buffer contents:', Array.from(notesBuffer.entries()));
+  return notesBuffer;
+};
