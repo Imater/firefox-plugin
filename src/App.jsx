@@ -16,6 +16,7 @@ import MarkdownEditor from './components/MarkdownEditor';
 import Footer from './components/Footer';
 import DailyNotesPanel from './components/DailyNotesPanel';
 import LinkPreview from './components/LinkPreview';
+import CalendarPanel from './components/CalendarPanel';
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
@@ -50,6 +51,7 @@ function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [hoveredLink, setHoveredLink] = useState('');
   const [openTabs, setOpenTabs] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   
   const { isDarkMode, saveTheme } = useTheme();
@@ -71,9 +73,15 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const result = await chrome.storage.local.get(['lastOpenedPage', 'dailyNotesPanelOpen']);
+        const result = await chrome.storage.local.get(['lastOpenedPage', 'dailyNotesPanelOpen', 'showCalendarPanel']);
         const lastPage = result.lastOpenedPage || 'index.md';
         const dailyNotesOpen = result.dailyNotesPanelOpen || false;
+        
+        // Устанавливаем календарную панель по умолчанию, если настройка не найдена
+        if (result.showCalendarPanel === undefined) {
+          await chrome.storage.local.set({ showCalendarPanel: true });
+        }
+        
         setCurrentPage(lastPage);
         setDailyNotesPanelOpen(dailyNotesOpen);
         setIsInitialized(true);
@@ -397,6 +405,12 @@ function App() {
     await closeAllTabsExceptCurrent();
   };
 
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    setCurrentDailyDate(date);
+    setDailyNotesPanelOpen(true);
+  };
+
   const handleWikiLinkClick = (pageName) => {
     setHoveredLink(null); // Скрываем панель при переходе
     setCurrentPage(encodeURIComponent(pageName) + '.md');
@@ -450,13 +464,14 @@ function App() {
 
       return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
-      <Box sx={{ 
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowX: 'hidden',
-        overflowY: 'hidden'
-      }}>
+                   <Box sx={{
+               height: '100vh',
+               display: 'flex',
+               flexDirection: 'column',
+               overflowX: 'hidden',
+               overflowY: 'hidden',
+               marginRight: settings.showCalendarPanel ? '50px' : '0px' // Отступ для календарной панели
+             }}>
         <Header 
           onRefresh={handleLoadCurrentPage}
           onToggleSettings={() => setShowSettings(!showSettings)}
@@ -563,13 +578,21 @@ function App() {
           isDailyNotesEditing={isDailyNotesEditing}
         />
         
-        <LinkPreview 
-          link={hoveredLink} 
-          isVisible={!!hoveredLink && !isEditing && !isDailyNotesEditing} 
-        />
-      </Box>
-    </ThemeProvider>
-  );
+                       <LinkPreview
+                 link={hoveredLink}
+                 isVisible={!!hoveredLink && !isEditing && !isDailyNotesEditing}
+               />
+
+               {settings.showCalendarPanel && (
+                 <CalendarPanel
+                   onDateSelect={handleDateSelect}
+                   currentDate={selectedDate}
+                 />
+               )}
+
+             </Box>
+           </ThemeProvider>
+         );
 };
 
 

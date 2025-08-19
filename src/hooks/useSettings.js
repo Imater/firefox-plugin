@@ -12,6 +12,7 @@ export const useSettings = () => {
     lettersOnlyHotkeys: false,
     openInCurrentTab: false,
     singleTabMode: false,
+    showCalendarPanel: true,
   });
 
   const loadSettings = async () => {
@@ -26,6 +27,7 @@ export const useSettings = () => {
       'lettersOnlyHotkeys',
       'openInCurrentTab',
       'singleTabMode',
+      'showCalendarPanel',
       'lastOpenedPage'
     ]);
     setSettings({
@@ -39,6 +41,7 @@ export const useSettings = () => {
       lettersOnlyHotkeys: result.lettersOnlyHotkeys === true, // По умолчанию false
       openInCurrentTab: result.openInCurrentTab === true, // По умолчанию false
       singleTabMode: result.singleTabMode === true, // По умолчанию false
+      showCalendarPanel: result.showCalendarPanel !== false, // По умолчанию true
     });
   };
 
@@ -54,6 +57,7 @@ export const useSettings = () => {
       lettersOnlyHotkeys: settings.lettersOnlyHotkeys,
       openInCurrentTab: settings.openInCurrentTab,
       singleTabMode: settings.singleTabMode,
+      showCalendarPanel: settings.showCalendarPanel,
     });
     goHome();
   };

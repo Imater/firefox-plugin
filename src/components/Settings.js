@@ -85,22 +85,39 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
         sx={{ marginBottom: '8px' }}
       />
       
-      <FormControlLabel
-        control={
-          <Switch
-            checked={settings.singleTabMode}
-            onChange={async (e) => {
-              const newSettings = {...settings, singleTabMode: e.target.checked};
-              setSettings(newSettings);
-              // Автоматически сохраняем настройку
-              await chrome.storage.local.set({ singleTabMode: e.target.checked });
-            }}
-            color="primary"
-          />
-        }
-        label="Только одна вкладка (закрывать остальные)"
-        sx={{ marginBottom: '16px' }}
-      />
+                   <FormControlLabel
+               control={
+                 <Switch
+                   checked={settings.singleTabMode}
+                   onChange={async (e) => {
+                     const newSettings = {...settings, singleTabMode: e.target.checked};
+                     setSettings(newSettings);
+                     // Автоматически сохраняем настройку
+                     await chrome.storage.local.set({ singleTabMode: e.target.checked });
+                   }}
+                   color="primary"
+                 />
+               }
+               label="Только одна вкладка (закрывать остальные)"
+               sx={{ marginBottom: '8px' }}
+             />
+
+             <FormControlLabel
+               control={
+                 <Switch
+                   checked={settings.showCalendarPanel}
+                   onChange={async (e) => {
+                     const newSettings = {...settings, showCalendarPanel: e.target.checked};
+                     setSettings(newSettings);
+                     // Автоматически сохраняем настройку
+                     await chrome.storage.local.set({ showCalendarPanel: e.target.checked });
+                   }}
+                   color="primary"
+                 />
+               }
+               label="Показывать календарную панель"
+               sx={{ marginBottom: '16px' }}
+             />
 
       <Divider sx={{ marginY: '16px' }} />
       
