@@ -26,7 +26,7 @@ import { renderMarkdown, countHotkeyTargets } from './utils/markdownRenderer';
 
 // Services
 import { loadCurrentPage, saveCurrentPage } from './services/pageService';
-import { activateOrCreateTab, resolveUrl, cleanupClosedTabs } from './services/tabService';
+import { activateOrCreateTab, resolveUrl, cleanupClosedTabs, closeAllTabsExceptCurrent } from './services/tabService';
 import { 
   loadDailyNote, 
   saveDailyNote, 
@@ -267,6 +267,14 @@ function App() {
              resetBuffer();
              return;
            }
+           
+           // Обработка клавиши - для закрытия всех вкладок кроме текущей
+           if (key === '-') {
+             e.preventDefault();
+             handleCloseAllTabs();
+             resetBuffer();
+             return;
+           }
       
            // Игнорируем модификаторы
            if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -385,6 +393,10 @@ function App() {
     setCurrentPage('index.md');
   };
 
+  const handleCloseAllTabs = async () => {
+    await closeAllTabsExceptCurrent();
+  };
+
   const handleWikiLinkClick = (pageName) => {
     setHoveredLink(null); // Скрываем панель при переходе
     setCurrentPage(encodeURIComponent(pageName) + '.md');
@@ -449,6 +461,7 @@ function App() {
           onRefresh={handleLoadCurrentPage}
           onToggleSettings={() => setShowSettings(!showSettings)}
           onToggleEdit={() => setIsEditing(!isEditing)}
+          onCloseAllTabs={handleCloseAllTabs}
           isEditing={isEditing}
           isDailyNotesEditing={isDailyNotesEditing}
           currentPage={currentPage}

@@ -238,8 +238,14 @@ async function addBookmarkToNote(title, url, comment = '', destination = 'curren
       const periodicApiBase = (current.periodicApiUrl || 'http://127.0.0.1:27123');
       const dailyUrl = `${periodicApiBase}/periodic/daily/${year}/${month}/${day}/`;
 
+      // Получаем текущее время
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const timeString = `${hours}:${minutes}`;
+      
       // Подготовим контент для добавления в ежедневную заметку
-      const newBookmarkLine = `\n- [${title}](${url})${commentText}`;
+      const newBookmarkLine = `\n- ${timeString} [${title}](${url})${commentText}`;
 
       try {
         // Проверяем существование

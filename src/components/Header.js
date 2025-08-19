@@ -11,6 +11,7 @@ const Header = ({
   onRefresh, 
   onToggleSettings, 
   onToggleEdit,
+  onCloseAllTabs,
   isEditing,
   isDailyNotesEditing = false,
   currentPage, 
@@ -54,33 +55,55 @@ const Header = ({
         </IconButton>
       </Box>
 
-      <Breadcrumbs 
-        aria-label="breadcrumb" 
-        sx={{ 
-          marginBottom: '16px',
-          '& .MuiBreadcrumbs-separator': {
-            color: isDarkMode ? '#ffffff' : '#000000'
-          }
-        }}
-      >
-        {getBreadcrumbs(currentPage).map((crumb, index) => (
-          <Link
-            key={index}
-            color={index === getBreadcrumbs(currentPage).length - 1 ? 'text.primary' : 'inherit'}
-            underline="hover"
-            onClick={() => onBreadcrumbClick(crumb.path)}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <Breadcrumbs 
+          aria-label="breadcrumb" 
+          sx={{ 
+            '& .MuiBreadcrumbs-separator': {
+              color: isDarkMode ? '#ffffff' : '#000000'
+            }
+          }}
+        >
+          {getBreadcrumbs(currentPage).map((crumb, index) => (
+            <Link
+              key={index}
+              color={index === getBreadcrumbs(currentPage).length - 1 ? 'text.primary' : 'inherit'}
+              underline="hover"
+              onClick={() => onBreadcrumbClick(crumb.path)}
+              sx={{ 
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              {index === 0 && <HomeIcon sx={{ fontSize: 16, marginRight: '4px' }} />}
+              {crumb.name}
+                                 {index === 0 && !isEditing && !isDailyNotesEditing && <span className="hotkey-symbol" style={{ marginLeft: '4px' }}>0</span>}
+            </Link>
+          ))}
+        </Breadcrumbs>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton 
+            onClick={onCloseAllTabs}
+            size="small"
             sx={{ 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
+              fontSize: '16px',
+              fontWeight: 'bold',
+              color: 'text.primary',
+              '&:hover': {
+                backgroundColor: 'action.hover'
+              }
             }}
+            title="Закрыть все вкладки кроме текущей"
           >
-            {index === 0 && <HomeIcon sx={{ fontSize: 16, marginRight: '4px' }} />}
-            {crumb.name}
-                               {index === 0 && !isEditing && !isDailyNotesEditing && <span className="hotkey-symbol" style={{ marginLeft: '4px' }}>0</span>}
-          </Link>
-        ))}
-      </Breadcrumbs>
+            -
+          </IconButton>
+          {!isEditing && !isDailyNotesEditing && (
+            <span className="hotkey-symbol" style={{ marginLeft: '4px' }}>-</span>
+          )}
+        </Box>
+      </Box>
     </TopPanel>
   );
 };

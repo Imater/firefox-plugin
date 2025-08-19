@@ -181,6 +181,42 @@ export const cleanupClosedTabs = async () => {
   }
 };
 
+// Функция для закрытия всех вкладок кроме текущей
+export const closeAllTabsExceptCurrent = async () => {
+  try {
+    // Получаем все вкладки
+    const allTabs = await chrome.tabs.query({});
+    
+    // Находим текущую активную вкладку
+    const currentTab = await chrome.tabs.query({ active: true, currentWindow: true });
+    const currentTabId = currentTab.length > 0 ? currentTab[0].id : null;
+    
+    if (!currentTabId) {
+      console.warn('No current tab found');
+      return;
+    }
+    
+    // Фильтруем вкладки для закрытия (все кроме текущей и закрепленных)
+    const tabsToClose = allTabs.filter(tab => 
+      tab.id !== currentTabId && !tab.pinned
+    );
+    
+    if (tabsToClose.length > 0) {
+      // Закрываем вкладки
+      await chrome.tabs.remove(tabsToClose.map(tab => tab.id));
+      console.log('Closed', tabsToClose.length, 'tabs, keeping current tab and pinned tabs');
+      
+      // Очищаем записи о закрытых вкладках
+      const closedTabKeys = tabsToClose.map(tab => `tab_${tab.id}`);
+      await chrome.storage.local.remove(closedTabKeys);
+    } else {
+      console.log('No tabs to close');
+    }
+  } catch (error) {
+    console.error('Error closing tabs:', error);
+  }
+};
+
 // Функция для проверки, является ли URL относительным
 export const isRelativeUrl = (url) => {
   return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('file://');
