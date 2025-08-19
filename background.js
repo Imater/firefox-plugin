@@ -11,6 +11,12 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Добавить текущую страницу в ежедневные заметки",
     contexts: ["page"]
   });
+  
+  chrome.contextMenus.create({
+    id: "addLinkToBookmarks",
+    title: "Добавить ссылку в bookmarks",
+    contexts: ["link"]
+  });
 });
 
 // Ретрансляция сообщений от content script к панели (и наоборот при необходимости)
@@ -110,6 +116,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     
     // Открываем popup для ввода названия
     const bookmarkData = await showBookmarkDialog(formattedTitle, url, defaultDestination);
+    
+    if (bookmarkData) {
+      // Добавляем ссылку в заметку
+      await addBookmarkToNote(bookmarkData.title, bookmarkData.url, bookmarkData.comment, bookmarkData.destination);
+    }
+  } else if (info.menuItemId === "addLinkToBookmarks") {
+    // Получаем информацию о ссылке
+    const url = info.linkUrl;
+    const linkText = info.selectionText || info.linkText || 'Ссылка';
+    const title = tab.title;
+    
+    // Формируем название ссылки с доменом
+    const formattedTitle = formatBookmarkTitle(url, linkText);
+    
+    // Открываем popup для ввода названия
+    const bookmarkData = await showBookmarkDialog(formattedTitle, url, 'current');
     
     if (bookmarkData) {
       // Добавляем ссылку в заметку
