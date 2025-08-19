@@ -55,6 +55,36 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
       <Divider sx={{ marginY: '16px' }} />
       
       <Typography variant="subtitle1" gutterBottom>
+        Управление вкладками
+      </Typography>
+      
+      <FormControlLabel
+        control={
+          <Switch
+            checked={settings.openInCurrentTab}
+            onChange={(e) => setSettings({...settings, openInCurrentTab: e.target.checked})}
+            color="primary"
+          />
+        }
+        label="Открывать ссылки в текущей вкладке"
+        sx={{ marginBottom: '8px' }}
+      />
+      
+      <FormControlLabel
+        control={
+          <Switch
+            checked={settings.singleTabMode}
+            onChange={(e) => setSettings({...settings, singleTabMode: e.target.checked})}
+            color="primary"
+          />
+        }
+        label="Только одна вкладка (закрывать остальные)"
+        sx={{ marginBottom: '16px' }}
+      />
+
+      <Divider sx={{ marginY: '16px' }} />
+      
+      <Typography variant="subtitle1" gutterBottom>
         API настройки
       </Typography>
       

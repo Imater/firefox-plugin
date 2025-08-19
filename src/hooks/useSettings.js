@@ -10,6 +10,8 @@ export const useSettings = () => {
     dailyNotesPanelHeight: 300,
     enableHotkeys: true,
     lettersOnlyHotkeys: false,
+    openInCurrentTab: false,
+    singleTabMode: false,
   });
 
   const loadSettings = async () => {
@@ -22,6 +24,8 @@ export const useSettings = () => {
       'dailyNotesPanelHeight',
       'enableHotkeys',
       'lettersOnlyHotkeys',
+      'openInCurrentTab',
+      'singleTabMode',
       'lastOpenedPage'
     ]);
     setSettings({
@@ -33,6 +37,8 @@ export const useSettings = () => {
       dailyNotesPanelHeight: result.dailyNotesPanelHeight || 300,
       enableHotkeys: result.enableHotkeys !== false, // По умолчанию true
       lettersOnlyHotkeys: result.lettersOnlyHotkeys === true, // По умолчанию false
+      openInCurrentTab: result.openInCurrentTab === true, // По умолчанию false
+      singleTabMode: result.singleTabMode === true, // По умолчанию false
     });
   };
 
@@ -46,6 +52,8 @@ export const useSettings = () => {
       dailyNotesPanelHeight: settings.dailyNotesPanelHeight || 300,
       enableHotkeys: settings.enableHotkeys,
       lettersOnlyHotkeys: settings.lettersOnlyHotkeys,
+      openInCurrentTab: settings.openInCurrentTab,
+      singleTabMode: settings.singleTabMode,
     });
     goHome();
   };

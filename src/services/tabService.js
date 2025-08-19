@@ -43,12 +43,64 @@ const setTabLastAccessed = async (tabId) => {
 };
 
 // Функция для активации существующей вкладки или создания новой
-export const activateOrCreateTab = async (url) => {
+export const activateOrCreateTab = async (url, options = {}) => {
+  const { openInCurrentTab = false, singleTabMode = false } = options;
   try {
     // Проверяем, что URL валидный
     if (!url || url === '#' || url === '') {
       console.warn('Invalid URL:', url);
       return null;
+    }
+
+    // Если включен режим "открывать в текущей вкладке"
+    if (openInCurrentTab) {
+      try {
+        const currentTab = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab.length > 0) {
+          const tab = currentTab[0];
+          
+          // Если также включен режим "только одна вкладка", закрываем все остальные КРОМЕ текущей
+          if (singleTabMode) {
+            try {
+              const allTabs = await chrome.tabs.query({});
+              const tabsToClose = allTabs.filter(t => !t.pinned && t.id !== tab.id);
+              
+              if (tabsToClose.length > 0) {
+                await chrome.tabs.remove(tabsToClose.map(t => t.id));
+                console.log('Closed', tabsToClose.length, 'tabs in single tab mode, keeping current tab');
+              }
+            } catch (error) {
+              console.error('Error closing tabs in single tab mode:', error);
+            }
+          }
+          
+          // Обновляем URL текущей вкладки
+          await chrome.tabs.update(tab.id, { url: url });
+          
+          // Обновляем время последнего доступа
+          await setTabLastAccessed(tab.id);
+          
+          console.log('Updated current tab:', tab.id, 'with URL:', url);
+          return tab.id;
+        }
+      } catch (error) {
+        console.error('Error updating current tab:', error);
+      }
+    }
+    
+    // Если включен только режим "только одна вкладка" (без openInCurrentTab)
+    if (singleTabMode && !openInCurrentTab) {
+      try {
+        const allTabs = await chrome.tabs.query({});
+        const tabsToClose = allTabs.filter(tab => !tab.pinned);
+        
+        if (tabsToClose.length > 0) {
+          await chrome.tabs.remove(tabsToClose.map(tab => tab.id));
+          console.log('Closed', tabsToClose.length, 'tabs in single tab mode');
+        }
+      } catch (error) {
+        console.error('Error closing tabs in single tab mode:', error);
+      }
     }
 
     // Ищем существующую вкладку с таким URL

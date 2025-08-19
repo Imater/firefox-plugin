@@ -409,8 +409,11 @@ function App() {
       // Разрешаем URL (преобразуем относительные в абсолютные)
       const resolvedUrl = resolveUrl(baseUrl, url);
       
-      // Активируем или создаём вкладку
-      await activateOrCreateTab(resolvedUrl);
+      // Активируем или создаём вкладку с учетом настроек
+      await activateOrCreateTab(resolvedUrl, {
+        openInCurrentTab: settings.openInCurrentTab,
+        singleTabMode: settings.singleTabMode
+      });
     } catch (error) {
       console.error('Error handling external link:', error);
       // Fallback: открываем в новой вкладке
@@ -421,6 +424,17 @@ function App() {
       }
     }
   };
+
+  // Добавляем функции в глобальный объект для доступа из DailyNotesPanel
+  useEffect(() => {
+    window.handleWikiLinkClick = handleWikiLinkClick;
+    window.handleExternalLinkClick = handleExternalLinkClick;
+    
+    return () => {
+      delete window.handleWikiLinkClick;
+      delete window.handleExternalLinkClick;
+    };
+  }, [handleWikiLinkClick, handleExternalLinkClick]);
 
       return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>

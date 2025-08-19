@@ -464,6 +464,31 @@ const DailyNotesPanel = ({
           <div 
             className="markdown-content"
             dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && showHotkeys, 20, lettersOnlyHotkeys, currentHotkeyBuffer, openTabs)} // DailyNotes начинается с индекса 20 для уникальности
+            onClick={(e) => {
+              if (e.target.classList.contains('wiki-link')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const pageName = e.target.getAttribute('data-page');
+                if (pageName) {
+                  console.log('DailyNotes: Wiki link clicked:', pageName);
+                  // Нужно передать обработчик из App.jsx
+                  if (window.handleWikiLinkClick) {
+                    window.handleWikiLinkClick(pageName);
+                  }
+                }
+              } else if (e.target.classList.contains('external-link')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const url = e.target.getAttribute('data-url');
+                if (url) {
+                  console.log('DailyNotes: External link clicked:', url);
+                  // Нужно передать обработчик из App.jsx
+                  if (window.handleExternalLinkClick) {
+                    window.handleExternalLinkClick(url);
+                  }
+                }
+              }
+            }}
             onMouseOver={(e) => {
               if (e.target.classList.contains('wiki-link')) {
                 const pageName = e.target.getAttribute('data-page');
