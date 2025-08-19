@@ -67,17 +67,20 @@ function App() {
     }
   };
 
-  // Инициализация - загружаем последнюю открытую страницу
+  // Инициализация - загружаем последнюю открытую страницу и состояние ежедневных заметок
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const result = await chrome.storage.local.get(['lastOpenedPage']);
+        const result = await chrome.storage.local.get(['lastOpenedPage', 'dailyNotesPanelOpen']);
         const lastPage = result.lastOpenedPage || 'index.md';
+        const dailyNotesOpen = result.dailyNotesPanelOpen || false;
         setCurrentPage(lastPage);
+        setDailyNotesPanelOpen(dailyNotesOpen);
         setIsInitialized(true);
       } catch (error) {
-        console.error('Ошибка загрузки последней страницы:', error);
+        console.error('Ошибка загрузки настроек:', error);
         setCurrentPage('index.md');
+        setDailyNotesPanelOpen(false);
         setIsInitialized(true);
       }
     };
@@ -121,7 +124,14 @@ function App() {
     }
   }, [currentPage, isInitialized]);
 
-
+  // Сохраняем состояние панели ежедневных заметок
+  useEffect(() => {
+    if (isInitialized) {
+      chrome.storage.local.set({ 
+        dailyNotesPanelOpen: dailyNotesPanelOpen 
+      });
+    }
+  }, [dailyNotesPanelOpen, isInitialized]);
 
   // Загружаем заметку при изменении даты или типа
   useEffect(() => {
@@ -415,8 +425,11 @@ function App() {
       return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
       <Box sx={{ 
-        minHeight: '100vh',
-        overflowX: 'hidden'
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflowX: 'hidden',
+        overflowY: 'hidden'
       }}>
         <Header 
           onRefresh={handleLoadCurrentPage}
@@ -450,7 +463,11 @@ function App() {
         />
 
         {!isEditing && (
-          <ContentBox hasFooter={true}>
+          <ContentBox 
+            hasFooter={true}
+            dailyNotesPanelOpen={dailyNotesPanelOpen}
+            dailyNotesPanelHeight={settings.dailyNotesPanelHeight}
+          >
             <div 
               dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing && settings.enableHotkeys, 0, settings.lettersOnlyHotkeys, currentHotkeyBuffer, openTabs)} // Основной редактор начинается с индекса 0
               onClick={(e) => {

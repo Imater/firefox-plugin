@@ -22,15 +22,12 @@ import {
 import { styled } from '@mui/system';
 import { renderMarkdown } from '../utils/markdownRenderer';
 
-const PanelContainer = styled(Box)(({ theme, height, isOpen }) => ({
-  position: 'fixed',
-  bottom: isOpen ? '24px' : '-100%',
-  left: 0,
-  right: 0,
-  height: height || '300px',
+const PanelContainer = styled(Box)(({ theme, height, isOpen, isResizing }) => ({
+  position: 'relative', // Добавляем для работы ResizeHandle
+  height: isOpen ? (height || '300px') : '0px',
   backgroundColor: theme.palette.background.default,
   borderTop: `2px solid ${theme.palette.primary.main}`,
-  transition: 'bottom 0.3s ease',
+  transition: isResizing ? 'none' : 'height 0.3s ease', // Отключаем transition при изменении размера
   zIndex: 999,
   display: 'flex',
   flexDirection: 'column',
@@ -347,7 +344,7 @@ const DailyNotesPanel = ({
   if (!isOpen) return null;
 
   return (
-    <PanelContainer ref={panelRef} height={height} isOpen={isOpen}>
+    <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing}>
       <ResizeHandle onMouseDown={handleMouseDown}>
         <DragIcon className="drag-icon" />
       </ResizeHandle>

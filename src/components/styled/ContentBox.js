@@ -1,11 +1,14 @@
 import { Box } from '@mui/material';
 import { styled } from '@mui/system';
 
-const ContentBox = styled(Box)(({ theme, hasFooter }) => ({
+const ContentBox = styled(Box)(({ theme, hasFooter, dailyNotesPanelOpen, dailyNotesPanelHeight }) => ({
   padding: '10px',
   paddingBottom: hasFooter ? '24px' : '10px',
   backgroundColor: theme.palette.background.default,
   color: theme.palette.text.primary,
+  flex: 1,
+  overflow: 'auto',
+  minHeight: 0, // Важно для flex контейнера
   '& pre': {
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',

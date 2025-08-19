@@ -4,10 +4,6 @@ import { KeyboardArrowUp as ArrowUpIcon } from '@mui/icons-material';
 import { styled } from '@mui/system';
 
 const FooterContainer = styled(Box)(({ theme, isOpen }) => ({
-  position: 'fixed',
-  bottom: 0,
-  left: 0,
-  right: 0,
   height: '24px',
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.primary.contrastText,
