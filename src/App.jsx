@@ -52,6 +52,7 @@ function App() {
   const [hoveredLink, setHoveredLink] = useState('');
   const [openTabs, setOpenTabs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [scrollToTodayFunction, setScrollToTodayFunction] = useState(null);
 
   
   const { isDarkMode, saveTheme } = useTheme();
@@ -470,7 +471,7 @@ function App() {
                flexDirection: 'column',
                overflowX: 'hidden',
                overflowY: 'hidden',
-               marginRight: settings.showCalendarPanel ? '50px' : '0px' // Отступ для календарной панели
+               marginRight: settings.showCalendarPanel ? '60px' : '0px' // Отступ для календарной панели
              }}>
         <Header 
           onRefresh={handleLoadCurrentPage}
@@ -551,23 +552,24 @@ function App() {
           </ContentBox>
         )}
 
-        <DailyNotesPanel
-          isOpen={dailyNotesPanelOpen}
-          height={settings.dailyNotesPanelHeight}
-          onHeightChange={handleDailyNotesPanelHeightChange}
-          onDateChange={handleDailyDateChange}
-          currentDate={currentDailyDate}
-          content={dailyNoteContent}
-          onSave={handleSaveDailyNote}
-          noteType={currentNoteType}
-          showHotkeys={!isEditing && !isDailyNotesEditing && settings.enableHotkeys} // Показываем метки когда оба редактора не в режиме редактирования и горячие клавиши включены
-          startIndex={!isEditing && !isDailyNotesEditing ? countHotkeyTargets(content) : 0}
-          onEditingChange={setIsDailyNotesEditing} // Передаем функцию для обновления состояния редактирования
-          lettersOnlyHotkeys={settings.lettersOnlyHotkeys}
-          currentHotkeyBuffer={currentHotkeyBuffer}
-          onLinkHover={setHoveredLink}
-          openTabs={openTabs}
-        />
+                       <DailyNotesPanel
+                 isOpen={dailyNotesPanelOpen}
+                 height={settings.dailyNotesPanelHeight}
+                 onHeightChange={handleDailyNotesPanelHeightChange}
+                 onDateChange={handleDailyDateChange}
+                 currentDate={currentDailyDate}
+                 content={dailyNoteContent}
+                 onSave={handleSaveDailyNote}
+                 noteType={currentNoteType}
+                 showHotkeys={!isEditing && !isDailyNotesEditing && settings.enableHotkeys} // Показываем метки когда оба редактора не в режиме редактирования и горячие клавиши включены
+                 startIndex={!isEditing && !isDailyNotesEditing ? countHotkeyTargets(content) : 0}
+                 onEditingChange={setIsDailyNotesEditing} // Передаем функцию для обновления состояния редактирования
+                 lettersOnlyHotkeys={settings.lettersOnlyHotkeys}
+                 currentHotkeyBuffer={currentHotkeyBuffer}
+                 onLinkHover={setHoveredLink}
+                 openTabs={openTabs}
+                 onTodayClick={scrollToTodayFunction}
+               />
 
         <Footer
           isOpen={dailyNotesPanelOpen}
@@ -587,6 +589,7 @@ function App() {
                  <CalendarPanel
                    onDateSelect={handleDateSelect}
                    currentDate={selectedDate}
+                   onTodayClick={setScrollToTodayFunction}
                  />
                )}
 

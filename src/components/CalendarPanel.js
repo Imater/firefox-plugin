@@ -10,18 +10,24 @@ const CalendarContainer = styled(Box)(({ theme }) => ({
   position: 'fixed',
   right: 0,
   top: 0,
-  width: '50px',
+  width: '60px',
   height: '100vh',
   backgroundColor: theme.palette.background.paper,
   borderLeft: `1px solid ${theme.palette.divider}`,
   display: 'flex',
   flexDirection: 'column',
   zIndex: 1000,
+  // Улучшаем touch-взаимодействие
+  touchAction: 'pan-y',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  WebkitTouchCallout: 'none',
+  WebkitTapHighlightColor: 'transparent',
 }));
 
 const ScrollButton = styled(IconButton)(({ theme }) => ({
-  width: '50px',
-  height: '40px',
+  width: '60px',
+  height: '30px',
   borderRadius: 0,
   color: theme.palette.text.primary,
   '&:hover': {
@@ -32,8 +38,8 @@ const ScrollButton = styled(IconButton)(({ theme }) => ({
 
 
 const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected }) => ({
-  width: '50px',
-  height: '100px',
+  width: '60px',
+  height: '60px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -59,21 +65,21 @@ const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected }) => ({
     backgroundColor: theme.palette.action.hover,
   },
   '& .day-number': {
-    fontSize: '18px',
+    fontSize: '16px',
     fontWeight: 'bold',
     lineHeight: 1,
   },
   '& .day-name': {
-    fontSize: '10px',
+    fontSize: '9px',
     textTransform: 'uppercase',
     lineHeight: 1,
-    marginTop: '4px',
+    marginTop: '3px',
   },
 }));
 
 const MonthHeader = styled(Box)(({ theme }) => ({
-  width: '50px',
-  height: '60px',
+  width: '60px',
+  height: '50px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -98,7 +104,7 @@ const MonthHeader = styled(Box)(({ theme }) => ({
   },
 }));
 
-const CalendarPanel = ({ onDateSelect, currentDate }) => {
+const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick }) => {
   const [items, setItems] = useState([]);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [isNextPageLoading, setIsNextPageLoading] = useState(false);
@@ -213,12 +219,16 @@ const CalendarPanel = ({ onDateSelect, currentDate }) => {
   // Получаем высоту элемента
   const getItemSize = useCallback((index) => {
     const item = items[index];
-    if (!item) return 100; // Высота по умолчанию
-    return item.type === 'month' ? 60 : 100;
+    if (!item) return 60; // Высота по умолчанию
+    return item.type === 'month' ? 50 : 60;
   }, [items]);
 
   // Текущий видимый индекс
   const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
+  
+  // Состояние для touch-событий
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
 
   // Обработчик кнопок вверх/вниз
   const handleScrollUp = () => {
@@ -241,6 +251,59 @@ const CalendarPanel = ({ onDateSelect, currentDate }) => {
   const handleItemsRendered = useCallback(({ visibleStartIndex, visibleStopIndex }) => {
     setCurrentVisibleIndex(Math.floor((visibleStartIndex + visibleStopIndex) / 2));
   }, []);
+
+  // Touch-обработчики для планшетов
+  const handleTouchStart = useCallback((e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientY);
+  }, []);
+
+  const handleTouchMove = useCallback((e) => {
+    setTouchEnd(e.targetTouches[0].clientY);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isUpSwipe = distance > 50;
+    const isDownSwipe = distance < -50;
+    
+    if (isUpSwipe && listRef.current) {
+      // Свайп вверх - скролл вниз
+      const newIndex = Math.min(items.length - 1, currentVisibleIndex + 3);
+      listRef.current.scrollToItem(newIndex, 'center');
+      setCurrentVisibleIndex(newIndex);
+    }
+    
+    if (isDownSwipe && listRef.current) {
+      // Свайп вниз - скролл вверх
+      const newIndex = Math.max(0, currentVisibleIndex - 3);
+      listRef.current.scrollToItem(newIndex, 'center');
+      setCurrentVisibleIndex(newIndex);
+    }
+  }, [touchStart, touchEnd, currentVisibleIndex, items.length]);
+
+  // Функция для скролла к сегодняшнему дню
+  const scrollToToday = useCallback(() => {
+    if (listRef.current) {
+      const todayDate = new Date();
+      const todayIndex = items.findIndex(item => 
+        item.type === 'day' && item.date.toDateString() === todayDate.toDateString()
+      );
+      if (todayIndex !== -1) {
+        listRef.current.scrollToItem(todayIndex, 'center');
+        setCurrentVisibleIndex(todayIndex);
+      }
+    }
+  }, [items]);
+
+  // Экспортируем функцию скролла к сегодняшнему дню
+  useEffect(() => {
+    if (onTodayClick) {
+      onTodayClick(scrollToToday);
+    }
+  }, [onTodayClick, scrollToToday]);
 
   // Компонент для рендера элемента списка
   const ItemRenderer = useCallback(({ index, style }) => {
@@ -307,12 +370,26 @@ const CalendarPanel = ({ onDateSelect, currentDate }) => {
   }, [generateItems]);
 
     return (
-    <CalendarContainer>
+    <CalendarContainer
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <ScrollButton onClick={handleScrollUp} size="small">
         <KeyboardArrowUpIcon />
       </ScrollButton>
       
-      <Box sx={{ flex: 1 }}>
+      <Box sx={{ 
+        flex: 1,
+        '& > div': {
+          // Скрываем скроллбар для всех браузеров
+          scrollbarWidth: 'none', // Firefox
+          msOverflowStyle: 'none', // IE/Edge
+          '&::-webkit-scrollbar': {
+            display: 'none' // Chrome/Safari/Opera
+          }
+        }
+      }}>
         <InfiniteLoader
           ref={infiniteLoaderRef}
           isItemLoaded={isItemLoaded}
@@ -325,7 +402,7 @@ const CalendarPanel = ({ onDateSelect, currentDate }) => {
                 listRef.current = el;
                 ref(el);
               }}
-              height={window.innerHeight - 80} // Высота минус кнопки
+              height={window.innerHeight - 60} // Высота минус кнопки
               itemCount={items.length}
               itemSize={getItemSize}
               onItemsRendered={({ visibleStartIndex, visibleStopIndex, overscanStartIndex, overscanStopIndex }) => {
@@ -333,6 +410,12 @@ const CalendarPanel = ({ onDateSelect, currentDate }) => {
                 onItemsRendered({ visibleStartIndex, visibleStopIndex, overscanStartIndex, overscanStopIndex });
               }}
               overscanCount={5}
+              style={{
+                // Дополнительное скрытие скроллбара
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitScrollbar: { display: 'none' }
+              }}
             >
               {ItemRenderer}
             </List>

@@ -215,7 +215,8 @@ const DailyNotesPanel = ({
   lettersOnlyHotkeys = false,
   currentHotkeyBuffer = '',
   onLinkHover = null,
-  openTabs = []
+  openTabs = [],
+  onTodayClick = null
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
@@ -251,6 +252,10 @@ const DailyNotesPanel = ({
         break;
       case 'today':
         newDate = new Date();
+        // Вызываем функцию скролла к сегодняшнему дню в календаре
+        if (onTodayClick) {
+          onTodayClick();
+        }
         break;
       case 'tomorrow':
         newDate = new Date(today);
