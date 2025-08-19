@@ -15,6 +15,7 @@ import ContentBox from './components/styled/ContentBox';
 import MarkdownEditor from './components/MarkdownEditor';
 import Footer from './components/Footer';
 import DailyNotesPanel from './components/DailyNotesPanel';
+import LinkPreview from './components/LinkPreview';
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
@@ -44,23 +45,83 @@ function App() {
   const [dailyNoteContent, setDailyNoteContent] = useState('');
   const [currentDailyDate, setCurrentDailyDate] = useState(new Date());
   const [currentNoteType] = useState('daily');
+  const [isWaitingForSecondKey, setIsWaitingForSecondKey] = useState(false);
+  const [currentHotkeyBuffer, setCurrentHotkeyBuffer] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [hoveredLink, setHoveredLink] = useState('');
+  const [openTabs, setOpenTabs] = useState([]);
 
   
   const { isDarkMode, saveTheme } = useTheme();
   const { settings, setSettings, saveSettings } = useSettings();
 
-  useEffect(() => {
-    handleLoadCurrentPage();
-  }, [currentPage]);
+  // Функция для получения открытых вкладок
+  const getOpenTabs = async () => {
+    try {
+      const tabs = await chrome.tabs.query({});
+      const tabUrls = tabs.map(tab => tab.url).filter(url => url && url !== 'chrome://newtab/');
+      setOpenTabs(tabUrls);
+    } catch (error) {
+      console.error('Error getting open tabs:', error);
+      setOpenTabs([]);
+    }
+  };
 
-  // Сохраняем активную страницу для использования в background.js
+  // Инициализация - загружаем последнюю открытую страницу
   useEffect(() => {
-    chrome.storage.local.set({ currentPage: currentPage });
-  }, [currentPage]);
-
-  useEffect(() => {
-    handleLoadCurrentPage();
+    const initializeApp = async () => {
+      try {
+        const result = await chrome.storage.local.get(['lastOpenedPage']);
+        const lastPage = result.lastOpenedPage || 'index.md';
+        setCurrentPage(lastPage);
+        setIsInitialized(true);
+      } catch (error) {
+        console.error('Ошибка загрузки последней страницы:', error);
+        setCurrentPage('index.md');
+        setIsInitialized(true);
+      }
+    };
+    
+    initializeApp();
   }, []);
+
+  // Получаем открытые вкладки при загрузке и при изменении вкладок
+  useEffect(() => {
+    getOpenTabs();
+    
+    // Слушаем изменения вкладок
+    const handleTabUpdated = () => getOpenTabs();
+    const handleTabRemoved = () => getOpenTabs();
+    const handleTabCreated = () => getOpenTabs();
+    
+    chrome.tabs.onUpdated.addListener(handleTabUpdated);
+    chrome.tabs.onRemoved.addListener(handleTabRemoved);
+    chrome.tabs.onCreated.addListener(handleTabCreated);
+    
+    return () => {
+      chrome.tabs.onUpdated.removeListener(handleTabUpdated);
+      chrome.tabs.onRemoved.removeListener(handleTabRemoved);
+      chrome.tabs.onCreated.removeListener(handleTabCreated);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      handleLoadCurrentPage();
+    }
+  }, [currentPage, isInitialized]);
+
+  // Сохраняем активную страницу для использования в background.js и запоминаем последнюю открытую
+  useEffect(() => {
+    if (isInitialized) {
+      chrome.storage.local.set({ 
+        currentPage: currentPage,
+        lastOpenedPage: currentPage 
+      });
+    }
+  }, [currentPage, isInitialized]);
+
+
 
   // Загружаем заметку при изменении даты или типа
   useEffect(() => {
@@ -142,7 +203,6 @@ function App() {
          // Обработка нажатия горячих клавиш (внутри панели)
        useEffect(() => {
          const hotkeyBufferRef = { current: '' };
-         const hotkeyTimerRef = { current: null };
      
          // Маппинг русских букв на английские по раскладке клавиатуры
          const russianToEnglishMap = {
@@ -155,14 +215,13 @@ function App() {
      
          const resetBuffer = () => {
            hotkeyBufferRef.current = '';
-           if (hotkeyTimerRef.current) {
-             clearTimeout(hotkeyTimerRef.current);
-             hotkeyTimerRef.current = null;
-           }
+           setIsWaitingForSecondKey(false);
+           setCurrentHotkeyBuffer('');
          };
      
          const handleHotkeyPress = (e) => {
            if (isEditing || isDailyNotesEditing) return; // Не обрабатываем горячие клавиши в режиме редактирования
+           if (!settings.enableHotkeys) return; // Проверяем, включены ли горячие клавиши
            
            const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target && e.target.tagName) || '') || e.target.isContentEditable;
            if (isInput) return;
@@ -176,103 +235,93 @@ function App() {
              console.log(`Русская буква "${originalKey}" преобразована в "${key}"`);
            }
       
-             // Обработка клавиши 0 для перехода домой
-       if (key === '0') {
-         e.preventDefault();
-         goHome();
-         resetBuffer();
-         return;
-       }
-       
-       // Обработка клавиши + для переключения ежедневных заметок
-       if (key === '+' || key === '=') {
-         e.preventDefault();
-         setDailyNotesPanelOpen(prev => !prev);
-         resetBuffer();
-         return;
-       }
+           // Обработка клавиши ESC для отмены двойной метки
+           if (key === 'escape') {
+             e.preventDefault();
+             resetBuffer();
+             return;
+           }
+           
+           // Обработка клавиши 0 для перехода домой
+           if (key === '0') {
+             e.preventDefault();
+             goHome();
+             resetBuffer();
+             return;
+           }
+           
+           // Обработка клавиши + для переключения ежедневных заметок
+           if (key === '+' || key === '=') {
+             e.preventDefault();
+             setDailyNotesPanelOpen(prev => !prev);
+             resetBuffer();
+             return;
+           }
       
-      // Игнорируем модификаторы
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+           // Игнорируем модификаторы
+           if (e.ctrlKey || e.metaKey || e.altKey) return;
 
-      // Принимаем только латиницу и цифры
-      if (!/^[a-z0-9]$/.test(key)) {
-        console.log(`Ключ "${key}" (изначально "${originalKey}") не прошел проверку на латиницу/цифры`);
-        return;
-      }
+           // Проверяем допустимые символы в зависимости от настроек
+           const validPattern = settings.lettersOnlyHotkeys ? /^[a-z]$/ : /^[a-z0-9]$/;
+           if (!validPattern.test(key)) {
+             console.log(`Ключ "${key}" (изначально "${originalKey}") не прошел проверку`);
+             return;
+           }
 
-      // Обновляем буфер (до 2 символов), ждём возможное продолжение
-      hotkeyBufferRef.current = (hotkeyBufferRef.current + key).slice(-2);
-      if (hotkeyTimerRef.current) clearTimeout(hotkeyTimerRef.current);
-      
-      const hotkeyElements = document.querySelectorAll('[data-hotkey]');
-      console.log(`Найдено элементов с горячими клавишами: ${hotkeyElements.length}`);
+           // Обновляем буфер
+           hotkeyBufferRef.current = (hotkeyBufferRef.current + key).slice(-2);
+           setCurrentHotkeyBuffer(hotkeyBufferRef.current);
+           
+           const hotkeyElements = document.querySelectorAll('[data-hotkey]');
+           console.log(`Найдено элементов с горячими клавишами: ${hotkeyElements.length}`);
 
-      const bufferVal = hotkeyBufferRef.current;
-      const elementsArr = Array.from(hotkeyElements);
-      console.log(`Текущий буфер: "${bufferVal}", ищем точное совпадение`);
-      
-      // Выводим все доступные горячие клавиши для отладки
-      elementsArr.forEach(el => {
-        const hotkey = el.getAttribute('data-hotkey');
-        const text = el.textContent?.trim().substring(0, 20);
-        console.log(`Элемент с горячей клавишей "${hotkey}": "${text}"`);
-      });
-      
-      const exactMatch = elementsArr.find(el => (el.getAttribute('data-hotkey') || '') === bufferVal);
-      console.log(`Точное совпадение найдено: ${exactMatch ? 'ДА' : 'НЕТ'}`);
-      
-      const hasLongerPrefix = elementsArr.some(el => {
-        const hk = el.getAttribute('data-hotkey') || '';
-        return hk.startsWith(bufferVal) && hk.length > bufferVal.length;
-      });
-      console.log(`Есть более длинные префиксы: ${hasLongerPrefix ? 'ДА' : 'НЕТ'}`);
+           const bufferVal = hotkeyBufferRef.current;
+           const elementsArr = Array.from(hotkeyElements);
+           console.log(`Текущий буфер: "${bufferVal}", ищем точное совпадение`);
+           
+           // Выводим все доступные горячие клавиши для отладки
+           elementsArr.forEach(el => {
+             const hotkey = el.getAttribute('data-hotkey');
+             const text = el.textContent?.trim().substring(0, 20);
+             console.log(`Элемент с горячей клавишей "${hotkey}": "${text}"`);
+           });
+           
+           const exactMatch = elementsArr.find(el => (el.getAttribute('data-hotkey') || '') === bufferVal);
+           console.log(`Точное совпадение найдено: ${exactMatch ? 'ДА' : 'НЕТ'}`);
+           
+           const hasLongerPrefix = elementsArr.some(el => {
+             const hk = el.getAttribute('data-hotkey') || '';
+             return hk.startsWith(bufferVal) && hk.length > bufferVal.length;
+           });
+           console.log(`Есть более длинные префиксы: ${hasLongerPrefix ? 'ДА' : 'НЕТ'}`);
 
-      const triggerElement = (el) => {
-        e.preventDefault();
-        if (el.classList.contains('wiki-link')) {
-          const pageName = el.getAttribute('data-page');
-          if (pageName) handleWikiLinkClick(pageName);
-        } else if (el.classList.contains('external-link')) {
-          const url = el.getAttribute('data-url');
-          if (url) handleExternalLinkClick(url);
-        }
-        resetBuffer();
-      };
+           const triggerElement = (el) => {
+             e.preventDefault();
+             if (el.classList.contains('wiki-link')) {
+               const pageName = el.getAttribute('data-page');
+               if (pageName) handleWikiLinkClick(pageName);
+             } else if (el.classList.contains('external-link')) {
+               const url = el.getAttribute('data-url');
+               if (url) handleExternalLinkClick(url);
+             }
+             resetBuffer();
+           };
 
-      // Если точное совпадение и нет более длинного варианта — срабатываем сразу
-      if (exactMatch && (bufferVal.length > 1 || !hasLongerPrefix)) {
-        triggerElement(exactMatch);
-        return;
-      }
-
-      // Иначе ждём вторую букву до таймаута, затем решаем
-      hotkeyTimerRef.current = setTimeout(() => {
-        const buf = hotkeyBufferRef.current;
-        console.log(`Таймаут: ищем элемент с горячей клавишей "${buf}"`);
-        const els = Array.from(document.querySelectorAll('[data-hotkey]'));
-        let el = els.find(e2 => (e2.getAttribute('data-hotkey') || '') === buf);
-        if (!el && buf.length >= 1) {
-          // Фоллбек к одиночной первой букве
-          const first = buf[0];
-          console.log(`Фоллбек: ищем элемент с горячей клавишей "${first}"`);
-          el = els.find(e2 => (e2.getAttribute('data-hotkey') || '') === first);
-        }
-        if (el) {
-          console.log(`Найден элемент для активации: ${el.textContent?.trim().substring(0, 20)}`);
-          if (el.classList.contains('wiki-link')) {
-            const pageName = el.getAttribute('data-page');
-            if (pageName) handleWikiLinkClick(pageName);
-          } else if (el.classList.contains('external-link')) {
-            const url = el.getAttribute('data-url');
-            if (url) handleExternalLinkClick(url);
-          }
-        } else {
-          console.log('Элемент для активации не найден');
-        }
-        resetBuffer();
-      }, 700);
-    };
+           // Если есть точное совпадение - срабатываем сразу
+           if (exactMatch) {
+             triggerElement(exactMatch);
+             return;
+           }
+           
+           // Если нет точного совпадения, но есть более длинный префикс - ждем следующую клавишу
+           if (hasLongerPrefix) {
+             setIsWaitingForSecondKey(true);
+             return;
+           }
+           
+           // Если нет точного совпадения и нет более длинного префикса - сбрасываем буфер
+           resetBuffer();
+         };
 
     if (!isEditing && !isDailyNotesEditing) {
       document.addEventListener('keydown', handleHotkeyPress);
@@ -327,6 +376,7 @@ function App() {
   };
 
   const handleWikiLinkClick = (pageName) => {
+    setHoveredLink(null); // Скрываем панель при переходе
     setCurrentPage(encodeURIComponent(pageName) + '.md');
   };
 
@@ -341,6 +391,7 @@ function App() {
 
   const handleExternalLinkClick = async (url) => {
     try {
+      setHoveredLink(null); // Скрываем панель при переходе
           // Получаем базовый URL из настроек API
     const result = await chrome.storage.local.get(['apiUrl']);
     const baseUrl = result.apiUrl || 'http://127.0.0.1:27123/vault';
@@ -376,6 +427,7 @@ function App() {
           currentPage={currentPage}
           onBreadcrumbClick={handleBreadcrumbClick}
           isDarkMode={isDarkMode}
+          isWaitingForSecondKey={isWaitingForSecondKey}
         />
 
         {showSettings && (
@@ -400,7 +452,7 @@ function App() {
         {!isEditing && (
           <ContentBox hasFooter={true}>
             <div 
-              dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing, 0)} // Основной редактор начинается с индекса 0
+              dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing && settings.enableHotkeys, 0, settings.lettersOnlyHotkeys, currentHotkeyBuffer, openTabs)} // Основной редактор начинается с индекса 0
               onClick={(e) => {
                 if (e.target.classList.contains('wiki-link')) {
                   e.preventDefault();
@@ -418,6 +470,24 @@ function App() {
                   }
                 }
               }}
+              onMouseOver={(e) => {
+                if (e.target.classList.contains('wiki-link')) {
+                  const pageName = e.target.getAttribute('data-page');
+                  if (pageName) {
+                    setHoveredLink(`[[${pageName}]]`);
+                  }
+                } else if (e.target.classList.contains('external-link')) {
+                  const url = e.target.getAttribute('data-url');
+                  if (url) {
+                    setHoveredLink(url);
+                  }
+                }
+              }}
+              onMouseOut={(e) => {
+                if (e.target.classList.contains('wiki-link') || e.target.classList.contains('external-link')) {
+                  setHoveredLink('');
+                }
+              }}
             />
           </ContentBox>
         )}
@@ -431,9 +501,13 @@ function App() {
           content={dailyNoteContent}
           onSave={handleSaveDailyNote}
           noteType={currentNoteType}
-          showHotkeys={!isEditing && !isDailyNotesEditing} // Показываем метки когда оба редактора не в режиме редактирования
+          showHotkeys={!isEditing && !isDailyNotesEditing && settings.enableHotkeys} // Показываем метки когда оба редактора не в режиме редактирования и горячие клавиши включены
           startIndex={!isEditing && !isDailyNotesEditing ? countHotkeyTargets(content) : 0}
           onEditingChange={setIsDailyNotesEditing} // Передаем функцию для обновления состояния редактирования
+          lettersOnlyHotkeys={settings.lettersOnlyHotkeys}
+          currentHotkeyBuffer={currentHotkeyBuffer}
+          onLinkHover={setHoveredLink}
+          openTabs={openTabs}
         />
 
         <Footer
@@ -443,6 +517,11 @@ function App() {
           noteType={currentNoteType}
           isEditing={isEditing}
           isDailyNotesEditing={isDailyNotesEditing}
+        />
+        
+        <LinkPreview 
+          link={hoveredLink} 
+          isVisible={!!hoveredLink && !isEditing && !isDailyNotesEditing} 
         />
       </Box>
     </ThemeProvider>

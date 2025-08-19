@@ -87,7 +87,7 @@ const MarkdownEditor = ({
     return (
       <EditorContainer>
         <div className="editor-toolbar">
-          <span>Редактирование: {currentPage}</span>
+          <span>Редактирование</span>
           <div className="editor-actions">
             <Button
               variant="contained"

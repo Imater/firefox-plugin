@@ -8,6 +8,8 @@ export const useSettings = () => {
     apiUrl: 'http://127.0.0.1:27123/vault/bookmarks',
     periodicApiUrl: 'http://127.0.0.1:27123',
     dailyNotesPanelHeight: 300,
+    enableHotkeys: true,
+    lettersOnlyHotkeys: false,
   });
 
   const loadSettings = async () => {
@@ -17,7 +19,10 @@ export const useSettings = () => {
       'apiKey',
       'apiUrl',
       'periodicApiUrl',
-      'dailyNotesPanelHeight'
+      'dailyNotesPanelHeight',
+      'enableHotkeys',
+      'lettersOnlyHotkeys',
+      'lastOpenedPage'
     ]);
     setSettings({
       tabRefreshMinutes: result.tabRefreshMinutes || 15,
@@ -26,6 +31,8 @@ export const useSettings = () => {
       apiUrl: result.apiUrl || 'http://127.0.0.1:27123/vault',
       periodicApiUrl: result.periodicApiUrl || 'http://127.0.0.1:27123',
       dailyNotesPanelHeight: result.dailyNotesPanelHeight || 300,
+      enableHotkeys: result.enableHotkeys !== false, // По умолчанию true
+      lettersOnlyHotkeys: result.lettersOnlyHotkeys === true, // По умолчанию false
     });
   };
 
@@ -37,6 +44,8 @@ export const useSettings = () => {
       apiUrl: settings.apiUrl,
       periodicApiUrl: settings.periodicApiUrl,
       dailyNotesPanelHeight: settings.dailyNotesPanelHeight || 300,
+      enableHotkeys: settings.enableHotkeys,
+      lettersOnlyHotkeys: settings.lettersOnlyHotkeys,
     });
     goHome();
   };

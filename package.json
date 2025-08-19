@@ -7,7 +7,7 @@
         "start": "rollup -c -w",
         "dev": "rollup -c --watch",
         "build": "rollup -c",
-        "prepare": "npm run build"
+        "postinstall": "yarn build"
     },
     "dependencies": {
         "@emotion/react": "^11.11.1",
@@ -29,7 +29,6 @@
         "rollup": "^3.28.1",
         "rollup-plugin-copy": "^3.5.0",
         "rollup-plugin-postcss": "^4.0.2",
-        "rollup-plugin-serve": "^2.0.2",
         "rollup-plugin-styles": "^4.0.0"
     },
     "browserslist": {

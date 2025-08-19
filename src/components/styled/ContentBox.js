@@ -46,6 +46,33 @@ const ContentBox = styled(Box)(({ theme, hasFooter }) => ({
     position: 'relative',
     top: '-1px', // Поднимаем на 1px выше
   },
+  '& .hotkey-highlighted': {
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.warning.contrastText,
+    border: `2px solid ${theme.palette.warning.dark}`,
+    opacity: 1,
+    animation: 'pulse 1s infinite',
+  },
+  '& .hotkey-open-tab': {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    border: `2px solid ${theme.palette.success.dark}`,
+    opacity: 1,
+  },
+  '@keyframes pulse': {
+    '0%': {
+      boxShadow: '0 0 0 0 rgba(255, 193, 7, 0.7)',
+    },
+    '70%': {
+      boxShadow: '0 0 0 10px rgba(255, 193, 7, 0)',
+    },
+    '100%': {
+      boxShadow: '0 0 0 0 rgba(255, 193, 7, 0)',
+    },
+  },
+  '& ul, & ol': {
+    paddingLeft: '20px',
+  },
   '& *': {
     maxWidth: '100%',
     wordWrap: 'break-word',

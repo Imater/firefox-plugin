@@ -158,6 +158,30 @@ const ContentContainer = styled(Box)(({ theme }) => ({
     position: 'relative',
     top: '-1px', // Поднимаем на 1px выше
   },
+  '& .hotkey-highlighted': {
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.warning.contrastText,
+    border: `2px solid ${theme.palette.warning.dark}`,
+    opacity: 1,
+    animation: 'pulse 1s infinite',
+  },
+  '& .hotkey-open-tab': {
+    backgroundColor: theme.palette.success.main,
+    color: theme.palette.success.contrastText,
+    border: `2px solid ${theme.palette.success.dark}`,
+    opacity: 1,
+  },
+  '@keyframes pulse': {
+    '0%': {
+      boxShadow: '0 0 0 0 rgba(255, 193, 7, 0.7)',
+    },
+    '70%': {
+      boxShadow: '0 0 0 10px rgba(255, 193, 7, 0)',
+    },
+    '100%': {
+      boxShadow: '0 0 0 0 rgba(255, 193, 7, 0)',
+    },
+  },
 }));
 
 const ResizeHandle = styled(Box)(({ theme }) => ({
@@ -190,7 +214,11 @@ const DailyNotesPanel = ({
   onSave,
   noteType = 'daily',
   showHotkeys = false,
-  onEditingChange
+  onEditingChange,
+  lettersOnlyHotkeys = false,
+  currentHotkeyBuffer = '',
+  onLinkHover = null,
+  openTabs = []
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
@@ -438,7 +466,32 @@ const DailyNotesPanel = ({
         ) : (
           <div 
             className="markdown-content"
-            dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && showHotkeys, 20)} // DailyNotes начинается с индекса 20 для уникальности
+            dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && showHotkeys, 20, lettersOnlyHotkeys, currentHotkeyBuffer, openTabs)} // DailyNotes начинается с индекса 20 для уникальности
+            onMouseOver={(e) => {
+              if (e.target.classList.contains('wiki-link')) {
+                const pageName = e.target.getAttribute('data-page');
+                if (pageName) {
+                  // Уведомляем родительский компонент о наведении на ссылку
+                  if (onLinkHover) {
+                    onLinkHover(`[[${pageName}]]`);
+                  }
+                }
+              } else if (e.target.classList.contains('external-link')) {
+                const url = e.target.getAttribute('data-url');
+                if (url) {
+                  if (onLinkHover) {
+                    onLinkHover(url);
+                  }
+                }
+              }
+            }}
+            onMouseOut={(e) => {
+              if (e.target.classList.contains('wiki-link') || e.target.classList.contains('external-link')) {
+                if (onLinkHover) {
+                  onLinkHover('');
+                }
+              }
+            }}
           />
         )}
       </ContentContainer>

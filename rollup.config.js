@@ -5,7 +5,6 @@ import replace from '@rollup/plugin-replace';
 import terser from '@rollup/plugin-terser';
 import postcss from 'rollup-plugin-postcss';
 import copy from 'rollup-plugin-copy';
-import serve from 'rollup-plugin-serve';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -14,8 +13,8 @@ const copyPlugin = copy({
   targets: [
     { src: 'src/*.html', dest: 'dist' },
     { src: 'src/*.png', dest: 'dist' },
+    { src: 'favorites-icon.png', dest: 'dist' },
     { src: 'manifest.json', dest: 'dist' },
-    { src: 'public/index.html', dest: 'dist' },
     { src: 'popup.html', dest: 'dist' },
     { src: 'popup.js', dest: 'dist' }
   ]
@@ -72,12 +71,6 @@ export default [
         use: ['sass']
       }),
       copyPlugin,
-      !isProduction && serve({
-        contentBase: 'dist',
-        port: 3000,
-        open: true,
-        host: 'localhost'
-      }),
       isProduction && terser()
     ].filter(Boolean),
     onwarn(warning, warn) {

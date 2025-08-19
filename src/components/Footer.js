@@ -16,7 +16,7 @@ const FooterContainer = styled(Box)(({ theme, isOpen }) => ({
   justifyContent: 'center',
   cursor: 'pointer',
   transition: 'all 0.3s ease',
-  zIndex: 1000,
+  zIndex: 1100,
   '&:hover': {
     backgroundColor: theme.palette.primary.dark,
   },

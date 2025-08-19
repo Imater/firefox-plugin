@@ -15,12 +15,13 @@ const Header = ({
   isDailyNotesEditing = false,
   currentPage, 
   onBreadcrumbClick, 
-  isDarkMode 
+  isDarkMode,
+  isWaitingForSecondKey = false
 }) => {
   return (
     <TopPanel>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <Box sx={{ display: 'flex', gap: '4px' }}>
+        <Box sx={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <IconButton onClick={onRefresh} size="small">
             <RefreshIcon />
           </IconButton>
@@ -31,6 +32,22 @@ const Header = ({
           >
             <EditIcon />
           </IconButton>
+          {isWaitingForSecondKey && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '4px',
+              padding: '4px 8px',
+              backgroundColor: 'warning.main',
+              color: 'warning.contrastText',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            }}>
+              <span>Ожидание второй клавиши...</span>
+              <span style={{ fontSize: '10px' }}>(ESC для отмены)</span>
+            </Box>
+          )}
         </Box>
         <IconButton onClick={onToggleSettings} size="small">
           <SettingsIcon />

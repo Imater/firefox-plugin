@@ -5,6 +5,12 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Добавить текущую страницу в bookmarks",
     contexts: ["page"]
   });
+  
+  chrome.contextMenus.create({
+    id: "addToDailyNotes",
+    title: "Добавить текущую страницу в ежедневные заметки",
+    contexts: ["page"]
+  });
 });
 
 // Ретрансляция сообщений от content script к панели (и наоборот при необходимости)
@@ -93,17 +99,21 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // Обработчик клика по контекстному меню
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === "addToBookmarks") {
+  if (info.menuItemId === "addToBookmarks" || info.menuItemId === "addToDailyNotes") {
     // Получаем информацию о текущей вкладке
     const url = tab.url;
     const title = tab.title;
+    const defaultDestination = info.menuItemId === "addToDailyNotes" ? "today" : "current";
+    
+    // Формируем название ссылки с доменом
+    const formattedTitle = formatBookmarkTitle(url, title);
     
     // Открываем popup для ввода названия
-    const bookmarkData = await showBookmarkDialog(title, url);
+    const bookmarkData = await showBookmarkDialog(formattedTitle, url, defaultDestination);
     
     if (bookmarkData) {
       // Добавляем ссылку в заметку
-      await addBookmarkToNote(bookmarkData.title, bookmarkData.url, bookmarkData.destination);
+      await addBookmarkToNote(bookmarkData.title, bookmarkData.url, bookmarkData.comment, bookmarkData.destination);
     }
   }
 });
@@ -132,22 +142,56 @@ async function refreshSidePanel() {
   }
 }
 
+// Функция для извлечения домена из URL
+function extractDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname;
+  } catch (error) {
+    console.error('Error extracting domain from URL:', error);
+    return '';
+  }
+}
+
+// Функция для формирования названия ссылки
+function formatBookmarkTitle(url, pageTitle) {
+  const domain = extractDomain(url);
+  if (!domain) {
+    return pageTitle || 'Без названия';
+  }
+  
+  // Очищаем заголовок страницы от лишних символов
+  let cleanTitle = pageTitle || '';
+  
+  // Убираем лишние пробелы и переносы строк
+  cleanTitle = cleanTitle.replace(/\s+/g, ' ').trim();
+  
+  // Если заголовок слишком длинный, обрезаем его
+  const maxTitleLength = 100;
+  if (cleanTitle.length > maxTitleLength) {
+    cleanTitle = cleanTitle.substring(0, maxTitleLength) + '...';
+  }
+  
+  return `${domain} - ${cleanTitle}`;
+}
+
 // Функция для показа диалога ввода
-function showBookmarkDialog(defaultTitle, url) {
+function showBookmarkDialog(defaultTitle, url, defaultDestination = 'current') {
   return new Promise((resolve) => {
     // Создаем popup окно
     chrome.windows.create({
       url: chrome.runtime.getURL('popup.html'),
       type: 'popup',
       width: 500,
-      height: 500,
+      height: 550,
       focused: true
     }, (popupWindow) => {
       // Сохраняем данные в storage для передачи в popup
       chrome.storage.local.set({
         'popup_data': {
           title: defaultTitle,
-          url: url
+          url: url,
+          destination: defaultDestination
         }
       }, () => {
         // Слушаем сообщения от popup
@@ -166,7 +210,7 @@ function showBookmarkDialog(defaultTitle, url) {
 }
 
 // Функция для добавления закладки в заметку
-async function addBookmarkToNote(title, url, destination = 'current') {
+async function addBookmarkToNote(title, url, comment = '', destination = 'current') {
   try {
     // Получаем настройки
     const result = await chrome.storage.local.get(['useApi', 'apiKey', 'apiUrl']);
@@ -176,7 +220,8 @@ async function addBookmarkToNote(title, url, destination = 'current') {
     }
     
     // Формируем новую ссылку в markdown формате
-    const newBookmark = `\n[${title}](${url})`;
+    const commentText = comment ? ` (${comment})` : '';
+    const newBookmark = `\n- [${title}](${url})${commentText}`;
     
     // Определяем какой файл редактировать: активный из правой панели или index.md по умолчанию
     const current = await chrome.storage.local.get(['currentPage', 'periodicApiUrl', 'apiKey']);
@@ -194,7 +239,7 @@ async function addBookmarkToNote(title, url, destination = 'current') {
       const dailyUrl = `${periodicApiBase}/periodic/daily/${year}/${month}/${day}/`;
 
       // Подготовим контент для добавления в ежедневную заметку
-      const newBookmarkLine = `\n- [${title}](${url})`;
+      const newBookmarkLine = `\n- [${title}](${url})${commentText}`;
 
       try {
         // Проверяем существование
@@ -240,7 +285,7 @@ async function addBookmarkToNote(title, url, destination = 'current') {
         // Уведомление и обновление панели, затем выходим
         chrome.notifications.create({
           type: 'basic',
-          iconUrl: 'icon.png',
+          iconUrl: 'favorites-icon.png',
           title: 'Закладка добавлена',
           message: `Ссылка "${title}" добавлена в ежедневную заметку`
         });
@@ -288,7 +333,7 @@ async function addBookmarkToNote(title, url, destination = 'current') {
     // Показываем уведомление об успехе
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icon.png',
+      iconUrl: 'favorites-icon.png',
       title: 'Закладка добавлена',
       message: `Ссылка "${title}" успешно добавлена в заметку`
     });
@@ -302,7 +347,7 @@ async function addBookmarkToNote(title, url, destination = 'current') {
     // Показываем уведомление об ошибке
     chrome.notifications.create({
       type: 'basic',
-      iconUrl: 'icon.png',
+      iconUrl: 'favorites-icon.png',
       title: 'Ошибка',
       message: `Не удалось добавить закладку: ${error.message}`
     });

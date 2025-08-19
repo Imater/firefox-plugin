@@ -24,6 +24,37 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
       <Divider sx={{ marginY: '16px' }} />
       
       <Typography variant="subtitle1" gutterBottom>
+        Горячие клавиши
+      </Typography>
+      
+      <FormControlLabel
+        control={
+          <Switch
+            checked={settings.enableHotkeys}
+            onChange={(e) => setSettings({...settings, enableHotkeys: e.target.checked})}
+            color="primary"
+          />
+        }
+        label="Включить метки быстрого перехода"
+        sx={{ marginBottom: '8px' }}
+      />
+      
+      <FormControlLabel
+        control={
+          <Switch
+            checked={settings.lettersOnlyHotkeys}
+            onChange={(e) => setSettings({...settings, lettersOnlyHotkeys: e.target.checked})}
+            color="primary"
+            disabled={!settings.enableHotkeys}
+          />
+        }
+        label="Быстрый переход только буквами (без цифр)"
+        sx={{ marginBottom: '16px' }}
+      />
+
+      <Divider sx={{ marginY: '16px' }} />
+      
+      <Typography variant="subtitle1" gutterBottom>
         API настройки
       </Typography>
       

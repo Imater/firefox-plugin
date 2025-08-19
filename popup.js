@@ -1,5 +1,6 @@
 // Получаем элементы DOM
 const titleInput = document.getElementById('title');
+const commentInput = document.getElementById('comment');
 const urlDisplay = document.getElementById('url-display');
 const addBtn = document.getElementById('add-btn');
 const cancelBtn = document.getElementById('cancel-btn');
@@ -14,10 +15,17 @@ chrome.storage.local.get(['popup_data'], function(result) {
   if (result.popup_data) {
     defaultTitle = result.popup_data.title || '';
     defaultUrl = result.popup_data.url || '';
+    const defaultDestination = result.popup_data.destination || 'current';
     
     // Заполняем поля данными
     titleInput.value = defaultTitle;
     urlDisplay.textContent = defaultUrl;
+    
+    // Устанавливаем выбранное назначение
+    const destinationInput = destinationInputs().find(r => r.value === defaultDestination);
+    if (destinationInput) {
+      destinationInput.checked = true;
+    }
     
     // Очищаем данные из storage
     chrome.storage.local.remove(['popup_data']);
@@ -27,8 +35,14 @@ chrome.storage.local.get(['popup_data'], function(result) {
 // Фокус на поле ввода названия
 titleInput.focus();
 
-// Обработчик нажатия Enter в поле ввода
+// Обработчик нажатия Enter в полях ввода
 titleInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        addBookmark();
+    }
+});
+
+commentInput.addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         addBookmark();
     }
@@ -45,6 +59,7 @@ cancelBtn.addEventListener('click', function() {
 // Функция добавления закладки
 function addBookmark() {
     const title = titleInput.value.trim();
+    const comment = commentInput.value.trim();
     const url = defaultUrl;
     const destination = (destinationInputs().find(r => r.checked) || {}).value || 'current';
     
@@ -65,6 +80,7 @@ function addBookmark() {
         data: {
             title: title,
             url: url,
+            comment: comment,
             destination: destination
         }
     });
