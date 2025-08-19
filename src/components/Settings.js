@@ -31,7 +31,12 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
         control={
           <Switch
             checked={settings.enableHotkeys}
-            onChange={(e) => setSettings({...settings, enableHotkeys: e.target.checked})}
+            onChange={async (e) => {
+              const newSettings = {...settings, enableHotkeys: e.target.checked};
+              setSettings(newSettings);
+              // Автоматически сохраняем настройку
+              await chrome.storage.local.set({ enableHotkeys: e.target.checked });
+            }}
             color="primary"
           />
         }
@@ -43,7 +48,12 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
         control={
           <Switch
             checked={settings.lettersOnlyHotkeys}
-            onChange={(e) => setSettings({...settings, lettersOnlyHotkeys: e.target.checked})}
+            onChange={async (e) => {
+              const newSettings = {...settings, lettersOnlyHotkeys: e.target.checked};
+              setSettings(newSettings);
+              // Автоматически сохраняем настройку
+              await chrome.storage.local.set({ lettersOnlyHotkeys: e.target.checked });
+            }}
             color="primary"
             disabled={!settings.enableHotkeys}
           />
@@ -62,7 +72,12 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
         control={
           <Switch
             checked={settings.openInCurrentTab}
-            onChange={(e) => setSettings({...settings, openInCurrentTab: e.target.checked})}
+            onChange={async (e) => {
+              const newSettings = {...settings, openInCurrentTab: e.target.checked};
+              setSettings(newSettings);
+              // Автоматически сохраняем настройку
+              await chrome.storage.local.set({ openInCurrentTab: e.target.checked });
+            }}
             color="primary"
           />
         }
@@ -74,7 +89,12 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
         control={
           <Switch
             checked={settings.singleTabMode}
-            onChange={(e) => setSettings({...settings, singleTabMode: e.target.checked})}
+            onChange={async (e) => {
+              const newSettings = {...settings, singleTabMode: e.target.checked};
+              setSettings(newSettings);
+              // Автоматически сохраняем настройку
+              await chrome.storage.local.set({ singleTabMode: e.target.checked });
+            }}
             color="primary"
           />
         }
