@@ -122,6 +122,23 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
       <Divider sx={{ marginY: '16px' }} />
       
       <Typography variant="subtitle1" gutterBottom>
+        Таймер Помодорро
+      </Typography>
+      
+      <TextField
+        label="Продолжительность помодорро (минуты)"
+        type="number"
+        value={settings.pomodoroMinutes || 25}
+        onChange={(e) => setSettings({...settings, pomodoroMinutes: parseInt(e.target.value) || 25})}
+        fullWidth
+        margin="dense"
+        inputProps={{ min: 1, max: 120 }}
+        helperText="Стандартное время помодорро (обычно 25 минут)"
+      />
+
+      <Divider sx={{ marginY: '16px' }} />
+      
+      <Typography variant="subtitle1" gutterBottom>
         API настройки
       </Typography>
       

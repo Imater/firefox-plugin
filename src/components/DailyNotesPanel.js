@@ -204,6 +204,8 @@ const ResizeHandle = styled(Box)(({ theme }) => ({
   },
 }));
 
+
+
 const DailyNotesPanel = ({ 
   isOpen, 
   height, 
@@ -221,7 +223,8 @@ const DailyNotesPanel = ({
   openTabs = [],
   onTodayClick = null,
   onScrollToDate = null,
-  notePreview = ''
+  notePreview = '',
+  pomodoroTimer = null
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
@@ -231,6 +234,7 @@ const DailyNotesPanel = ({
   const [startY, setStartY] = useState(0);
   const [startHeight, setStartHeight] = useState(0);
   const [previewContent, setPreviewContent] = useState('');
+  const [activePomodoroTask, setActivePomodoroTask] = useState(null);
   
   const panelRef = useRef(null);
   const dispatch = useAppDispatch();
@@ -301,6 +305,25 @@ const DailyNotesPanel = ({
       handleDateChange: handleDateChange
     };
   }, [currentDate, onDateChange, onScrollToDate]);
+
+  // Обработка завершения таймера
+  useEffect(() => {
+    if (pomodoroTimer && !pomodoroTimer.isRunning && pomodoroTimer.activeTask && pomodoroTimer.timeLeft === 0) {
+      // Таймер закончился, добавляем заполненную помидорку
+      const currentContent = previewContent || content;
+      const now = new Date();
+      const timeString = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      const checkboxPattern = new RegExp(`^- \\[ \\] (${pomodoroTimer.activeTask.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})$`, 'gm');
+      const newContent = currentContent.replace(checkboxPattern, (match) => {
+        return `${match} 🔴 ${timeString}`;
+      });
+      
+      onSave(newContent);
+      dispatch(updateNote({ date: currentDate, content: newContent }));
+    }
+  }, [pomodoroTimer, previewContent, content, onSave, dispatch, currentDate]);
+
+
 
   // Получение названия типа заметки
   const getNoteTypeName = (type) => {
@@ -542,44 +565,95 @@ const DailyNotesPanel = ({
                     window.handleExternalLinkClick(url);
                   }
                 }
-              } else if (e.target.classList.contains('task-checkbox') || e.target.closest('.task-checkbox')) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const checkboxElement = e.target.classList.contains('task-checkbox') ? e.target : e.target.closest('.task-checkbox');
-                const isCurrentlyChecked = checkboxElement.getAttribute('data-checked') === 'true';
-                const taskText = checkboxElement.getAttribute('data-text');
-                
-                // Переключаем состояние галочки
-                const newChecked = !isCurrentlyChecked;
-                const newSymbol = newChecked ? '☑' : '☐';
-                
-                // Обновляем отображение
-                checkboxElement.setAttribute('data-checked', newChecked.toString());
-                checkboxElement.className = `task-checkbox ${newChecked ? 'checked' : 'unchecked'}`;
-                
-                // Сохраняем горячую клавишу если она есть
-                const hotkey = checkboxElement.getAttribute('data-hotkey');
-                const hotkeySymbol = hotkey ? ` <span class="hotkey-symbol">${hotkey.toUpperCase()}</span>` : '';
-                checkboxElement.innerHTML = `${newSymbol} ${taskText}${hotkeySymbol}`;
-                
-                // Обновляем контент и сохраняем
-                const currentContent = previewContent || content;
-                const checkboxPattern = new RegExp(`^- \\[${isCurrentlyChecked ? '[xX]' : ' '}\\] (.+)$`, 'gm');
-                const replacement = `- [${newChecked ? 'x' : ' '}] $1`;
-                const newContent = currentContent.replace(checkboxPattern, (match, text) => {
-                  if (text === taskText) {
-                    return replacement.replace('$1', text);
+                             } else if (e.target.classList.contains('task-checkbox') || e.target.closest('.task-checkbox')) {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 
+                 const checkboxElement = e.target.classList.contains('task-checkbox') ? e.target : e.target.closest('.task-checkbox');
+                 const isCurrentlyChecked = checkboxElement.getAttribute('data-checked') === 'true';
+                 const taskText = checkboxElement.getAttribute('data-text');
+                 
+                 // Переключаем состояние галочки
+                 const newChecked = !isCurrentlyChecked;
+                 const newSymbol = newChecked ? '☑' : '☐';
+                 
+                 // Обновляем отображение
+                 checkboxElement.setAttribute('data-checked', newChecked.toString());
+                 checkboxElement.className = `task-checkbox ${newChecked ? 'checked' : 'unchecked'}`;
+                 
+                 // Сохраняем горячую клавишу если она есть
+                 const hotkey = checkboxElement.getAttribute('data-hotkey');
+                 const hotkeySymbol = hotkey ? ` <span class="hotkey-symbol">${hotkey.toUpperCase()}</span>` : '';
+                 checkboxElement.innerHTML = `${newSymbol} ${taskText}${hotkeySymbol}`;
+                 
+                 // Обновляем контент и сохраняем
+                 const currentContent = previewContent || content;
+                 const checkboxPattern = new RegExp(`^- \\[${isCurrentlyChecked ? '[xX]' : ' '}\\] (.+)$`, 'gm');
+                 const replacement = `- [${newChecked ? 'x' : ' '}] $1`;
+                 const newContent = currentContent.replace(checkboxPattern, (match, text) => {
+                   if (text === taskText) {
+                     return replacement.replace('$1', text);
+                   }
+                   return match;
+                 });
+                 
+                 // Сохраняем изменения
+                 onSave(newContent);
+                 
+                 // Обновляем заметку в Redux store
+                 dispatch(updateNote({ date: currentDate, content: newContent }));
+                               } else if (e.target.classList.contains('pomodoro-play')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const taskText = e.target.getAttribute('data-task-text');
+                  setActivePomodoroTask(taskText);
+                  
+                  // Запускаем таймер
+                  if (pomodoroTimer) {
+                    pomodoroTimer.start(taskText);
                   }
-                  return match;
-                });
-                
-                // Сохраняем изменения
-                onSave(newContent);
-                
-                // Обновляем заметку в Redux store
-                dispatch(updateNote({ date: currentDate, content: newContent }));
-              }
+                  
+                  // Скрываем кнопку play
+                  e.target.style.display = 'none';
+                 
+                               } else if (e.target.classList.contains('pomodoro-pause')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  if (pomodoroTimer && pomodoroTimer.isPaused) {
+                    pomodoroTimer.resume();
+                  } else if (pomodoroTimer) {
+                    pomodoroTimer.pause();
+                  }
+                  
+                } else if (e.target.classList.contains('pomodoro-stop')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const taskText = e.target.getAttribute('data-task-text');
+                  if (pomodoroTimer) {
+                    pomodoroTimer.stop();
+                  }
+                  
+                  // Показываем кнопку play
+                  const playBtn = e.target.parentElement.querySelector('.pomodoro-play');
+                  if (playBtn) {
+                    playBtn.style.display = 'inline';
+                  }
+                  
+                  // Добавляем помидорку в markdown только при остановке
+                  const currentContent = previewContent || content;
+                  const now = new Date();
+                  const timeString = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                  const checkboxPattern = new RegExp(`^- \\[ \\] (${taskText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})$`, 'gm');
+                  const newContent = currentContent.replace(checkboxPattern, (match) => {
+                    return `${match} 🔴 ${timeString}`;
+                  });
+                  
+                  onSave(newContent);
+                  dispatch(updateNote({ date: currentDate, content: newContent }));
+                }
             }}
             onMouseOver={(e) => {
               if (e.target.classList.contains('wiki-link')) {
@@ -607,7 +681,7 @@ const DailyNotesPanel = ({
               }
             }}
           />
-        )}
+                )}
       </ContentContainer>
       
       <Snackbar

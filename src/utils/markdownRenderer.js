@@ -213,13 +213,23 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
       }
     );
     
-    // Добавляем символы к галочкам
+    // Добавляем символы к галочкам и кнопки помодорро
     processedContent = processedContent.replace(
       /<span class="task-checkbox ([^"]+)" data-checked="([^"]+)" data-text="([^"]+)">([^<]+)<\/span>/g,
       (match, className, checked, text, content) => {
         const symbol = getUniqueSymbol(hotkeyIndex);
         hotkeyIndex++;
-        return `<span class="task-checkbox ${className}" data-checked="${checked}" data-text="${text}" data-hotkey="${symbol}">${content} ${createHotkeySymbol(symbol)}</span>`;
+        const isChecked = checked === 'true';
+        
+                 // Добавляем только кнопку play для невыполненных задач
+         let pomodoroButtons = '';
+         if (!isChecked) {
+           pomodoroButtons = `
+             <button class="pomodoro-play" data-task-text="${text}" style="background: none; border: none; cursor: pointer; font-size: 12px; color: inherit; margin-left: 8px;">▶</button>
+           `;
+         }
+         
+         return `<span class="task-checkbox ${className}" data-checked="${checked}" data-text="${text}" data-hotkey="${symbol}">${content} ${createHotkeySymbol(symbol)}</span>${pomodoroButtons}`;
       }
     );
   }

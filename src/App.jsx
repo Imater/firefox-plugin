@@ -21,6 +21,56 @@ import CalendarPanel from './components/CalendarPanel';
 // Hooks
 import { useTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useSettings';
+import { usePomodoroTimer } from './hooks/usePomodoroTimer';
+import { styled } from '@mui/system';
+
+const PomodoroToolbar = styled(Box)(({ theme, isVisible, dailyNotesPanelOpen, showCalendarPanel, dailyNotesPanelHeight }) => ({
+  position: 'fixed',
+  bottom: dailyNotesPanelOpen ? '25px' : '24px', // Над футером панели ежедневных заметок (25px когда открыта, 24px когда свернута)
+  left: 0,
+  right: showCalendarPanel ? '100px' : '0px', // Отступ 100px если календарная панель открыта, иначе 0
+  height: isVisible ? '40px' : '0px',
+  backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+  borderTop: `1px solid ${theme.palette.divider}`,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '0 16px',
+  transition: 'all 0.3s ease',
+  overflow: 'hidden',
+  zIndex: 1000,
+  '& .pomodoro-info': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '12px',
+    color: theme.palette.text.primary,
+  },
+  '& .pomodoro-task-link': {
+    color: theme.palette.primary.main,
+    cursor: 'pointer',
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
+  '& .pomodoro-controls': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  '& .pomodoro-button': {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '14px',
+    padding: '4px',
+    borderRadius: '4px',
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
+  },
+}));
 
 // Utils
 import { renderMarkdown, countHotkeyTargets, resetUsedHotkeys } from './utils/markdownRenderer';
@@ -59,6 +109,7 @@ function App() {
   
   const { isDarkMode, saveTheme } = useTheme();
   const { settings, setSettings, saveSettings } = useSettings();
+  const pomodoroTimer = usePomodoroTimer(settings.pomodoroMinutes || 25);
 
   // Функция для получения открытых вкладок
   const getOpenTabs = async () => {
@@ -97,6 +148,22 @@ function App() {
     };
     
     initializeApp();
+  }, []);
+
+  // Обработка завершенного таймера помодорро
+  useEffect(() => {
+    const completedPomodoro = localStorage.getItem('pomodoroCompleted');
+    if (completedPomodoro) {
+      try {
+        const data = JSON.parse(completedPomodoro);
+        console.log('Pomodoro completed:', data);
+        // Здесь можно добавить уведомление или другую логику
+        localStorage.removeItem('pomodoroCompleted');
+      } catch (error) {
+        console.error('Error parsing completed pomodoro:', error);
+        localStorage.removeItem('pomodoroCompleted');
+      }
+    }
   }, []);
 
   // Получаем открытые вкладки при загрузке и при изменении вкладок
@@ -603,6 +670,7 @@ function App() {
                  onTodayClick={scrollToTodayFunction ? () => scrollToTodayFunction() : null}
                  onScrollToDate={scrollToDateFunction ? (date) => scrollToDateFunction(date) : null}
                  notePreview={calendarNotePreview}
+                 pomodoroTimer={pomodoroTimer}
                />
 
         <Footer
@@ -631,6 +699,159 @@ function App() {
                )}
 
              </Box>
+             
+                           <PomodoroToolbar 
+                isVisible={pomodoroTimer && pomodoroTimer.activeTask && pomodoroTimer.isRunning}
+                dailyNotesPanelOpen={dailyNotesPanelOpen}
+                showCalendarPanel={settings.showCalendarPanel}
+                dailyNotesPanelHeight={settings.dailyNotesPanelHeight}
+              >
+               {pomodoroTimer && pomodoroTimer.activeTask && pomodoroTimer.isRunning && (
+                 <>
+                   <div className="pomodoro-info">
+                     <span>🔴</span>
+                     <span className="pomodoro-timer-display">
+                       {pomodoroTimer.formatTime(pomodoroTimer.timeLeft)}
+                     </span>
+                     <span 
+                       className="pomodoro-task-link"
+                       onClick={() => {
+                         // Ищем задачу во всех загруженных заметках и переключаемся на нужную дату
+                         const findTaskInNotes = async () => {
+                           try {
+                             // Проверяем текущую заметку
+                             if (dailyNoteContent.includes(pomodoroTimer.activeTask)) {
+                               // Задача в текущей заметке, просто прокручиваем к ней
+                               const taskElement = document.querySelector(`[data-task-text="${pomodoroTimer.activeTask}"]`);
+                               if (taskElement) {
+                                 taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                               }
+                               return;
+                             }
+                             
+                             // Если задача не в текущей заметке, ищем в других заметках
+                             // Проверяем последние 30 дней
+                             const today = new Date();
+                             for (let i = 0; i < 30; i++) {
+                               const checkDate = new Date(today);
+                               checkDate.setDate(today.getDate() - i);
+                               
+                               try {
+                                 const noteContent = await loadDailyNote(checkDate);
+                                 if (noteContent.includes(pomodoroTimer.activeTask)) {
+                                   // Нашли задачу, переключаемся на эту дату
+                                   setCurrentDailyDate(checkDate);
+                                   setSelectedDate(checkDate);
+                                   await handleLoadDailyNote(checkDate);
+                                   
+                                   // Ждем загрузки и прокручиваем к задаче
+                                   setTimeout(() => {
+                                     const taskElement = document.querySelector(`[data-task-text="${pomodoroTimer.activeTask}"]`);
+                                     if (taskElement) {
+                                       taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                     }
+                                   }, 500);
+                                   return;
+                                 }
+                               } catch (error) {
+                                 // Игнорируем ошибки загрузки заметок
+                                 continue;
+                               }
+                             }
+                             
+                             // Если не нашли, показываем уведомление
+                             console.log('Задача не найдена в последних 30 днях');
+                           } catch (error) {
+                             console.error('Ошибка поиска задачи:', error);
+                           }
+                         };
+                         
+                         findTaskInNotes();
+                       }}
+                     >
+                       {pomodoroTimer.activeTask}
+                     </span>
+                   </div>
+                   <div className="pomodoro-controls">
+                     <button 
+                       className="pomodoro-button"
+                       onClick={() => {
+                         pomodoroTimer.stop();
+                         
+                         // Ищем задачу и добавляем помидорку в правильную заметку
+                         const addPomodoroToCorrectNote = async () => {
+                           try {
+                             // Проверяем текущую заметку
+                             if (dailyNoteContent.includes(pomodoroTimer.activeTask)) {
+                               // Задача в текущей заметке
+                               const currentContent = dailyNoteContent;
+                               const now = new Date();
+                               const timeString = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                               const checkboxPattern = new RegExp(`^- \\[ \\] (${pomodoroTimer.activeTask.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})$`, 'gm');
+                               const newContent = currentContent.replace(checkboxPattern, (match) => {
+                                 return `${match} 🔴 ${timeString}`;
+                               });
+                               
+                               handleSaveDailyNote(newContent);
+                               return;
+                             }
+                             
+                             // Если задача не в текущей заметке, ищем в других заметках
+                             const today = new Date();
+                             for (let i = 0; i < 30; i++) {
+                               const checkDate = new Date(today);
+                               checkDate.setDate(today.getDate() - i);
+                               
+                               try {
+                                 const noteContent = await loadDailyNote(checkDate);
+                                 if (noteContent.includes(pomodoroTimer.activeTask)) {
+                                   // Нашли задачу, добавляем помидорку в эту заметку
+                                   const now = new Date();
+                                   const timeString = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                                   const checkboxPattern = new RegExp(`^- \\[ \\] (${pomodoroTimer.activeTask.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})$`, 'gm');
+                                   const newContent = noteContent.replace(checkboxPattern, (match) => {
+                                     return `${match} 🔴 ${timeString}`;
+                                   });
+                                   
+                                   // Сохраняем заметку
+                                   await saveDailyNote(checkDate, newContent);
+                                   return;
+                                 }
+                               } catch (error) {
+                                 // Игнорируем ошибки загрузки заметок
+                                 continue;
+                               }
+                             }
+                             
+                             console.log('Задача не найдена для добавления помидорки');
+                           } catch (error) {
+                             console.error('Ошибка добавления помидорки:', error);
+                           }
+                         };
+                         
+                         addPomodoroToCorrectNote();
+                       }}
+                       title="Остановить"
+                     >
+                       ⏹️
+                     </button>
+                     <button 
+                       className="pomodoro-button"
+                       onClick={() => {
+                         if (pomodoroTimer.isPaused) {
+                           pomodoroTimer.resume();
+                         } else {
+                           pomodoroTimer.pause();
+                         }
+                       }}
+                       title={pomodoroTimer.isPaused ? "Возобновить" : "Пауза"}
+                     >
+                       {pomodoroTimer.isPaused ? '▶️' : '⏸️'}
+                     </button>
+                   </div>
+                 </>
+               )}
+             </PomodoroToolbar>
            </ThemeProvider>
          );
 };
