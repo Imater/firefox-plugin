@@ -20,35 +20,59 @@ export const usePomodoroTimer = (durationMinutes = 25) => {
         const remaining = Math.max(0, state.durationMinutes * 60 - elapsed);
         
         if (remaining > 0 && state.isRunning && !state.isPaused) {
+          // Таймер еще идет, восстанавливаем состояние с учетом прошедшего времени
           setIsRunning(true);
           setIsPaused(false);
           setTimeLeft(remaining);
-          setStartTime(state.startTime);
+          setStartTime(new Date(state.startTime));
           setElapsedTime(elapsed);
           setActiveTask(state.activeTask);
+          
+          // Немедленно сохраняем обновленное состояние
+          const updatedState = {
+            isRunning: true,
+            isPaused: false,
+            timeLeft: remaining,
+            startTime: state.startTime,
+            elapsedTime: elapsed,
+            activeTask: state.activeTask,
+            durationMinutes: state.durationMinutes
+          };
+          localStorage.setItem('pomodoroTimerState', JSON.stringify(updatedState));
         } else if (state.isRunning && state.isPaused) {
+          // Таймер на паузе, восстанавливаем состояние
           setIsRunning(true);
           setIsPaused(true);
           setTimeLeft(state.timeLeft);
-          setStartTime(state.startTime);
+          setStartTime(new Date(state.startTime));
           setElapsedTime(state.elapsedTime);
           setActiveTask(state.activeTask);
         } else if (remaining <= 0 && state.isRunning) {
-          // Таймер закончился, сохраняем информацию о завершении
+          // Таймер закончился пока приложение было закрыто
+          // Сохраняем информацию о завершении для добавления помидорки
           localStorage.setItem('pomodoroCompleted', JSON.stringify({
             task: state.activeTask,
             completedAt: now,
-            startTime: state.startTime
+            startTime: state.startTime,
+            durationMinutes: state.durationMinutes
           }));
           // Очищаем состояние таймера
           localStorage.removeItem('pomodoroTimerState');
+          
+          // Сбрасываем состояние таймера
+          setIsRunning(false);
+          setIsPaused(false);
+          setTimeLeft(durationMinutes * 60);
+          setStartTime(null);
+          setElapsedTime(0);
+          setActiveTask(null);
         }
       } catch (error) {
         console.error('Error loading pomodoro state:', error);
         localStorage.removeItem('pomodoroTimerState');
       }
     }
-  }, []);
+  }, [durationMinutes]);
 
   // Обновляем время при изменении длительности
   useEffect(() => {
@@ -66,6 +90,16 @@ export const usePomodoroTimer = (durationMinutes = 25) => {
             // Таймер закончился
             setIsRunning(false);
             setIsPaused(false);
+            
+            // Сохраняем информацию о завершении для добавления помидорки
+            const now = Date.now();
+            localStorage.setItem('pomodoroCompleted', JSON.stringify({
+              task: activeTask,
+              completedAt: now,
+              startTime: startTime ? startTime.getTime() : null,
+              durationMinutes: durationMinutes
+            }));
+            
             localStorage.removeItem('pomodoroTimerState');
             return 0;
           }
@@ -86,7 +120,7 @@ export const usePomodoroTimer = (durationMinutes = 25) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, isPaused]);
+  }, [isRunning, isPaused, activeTask, startTime, durationMinutes]);
 
   const saveState = () => {
     const state = {
@@ -122,6 +156,17 @@ export const usePomodoroTimer = (durationMinutes = 25) => {
   };
 
   const stop = () => {
+    // Если таймер был запущен и прошло больше минуты, сохраняем информацию о завершении
+    if (isRunning && elapsedTime > 60) {
+      const now = Date.now();
+      localStorage.setItem('pomodoroCompleted', JSON.stringify({
+        task: activeTask,
+        completedAt: now,
+        startTime: startTime ? startTime.getTime() : null,
+        durationMinutes: durationMinutes
+      }));
+    }
+    
     setIsRunning(false);
     setIsPaused(false);
     setTimeLeft(durationMinutes * 60);
