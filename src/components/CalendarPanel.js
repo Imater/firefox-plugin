@@ -5,7 +5,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { styled } from '@mui/material/styles';
 import { VariableSizeList as List } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
-import { DragDropContext, Droppable } from 'react-beautiful-dnd';
+
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { store } from '../store';
 import { 
@@ -272,44 +272,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
     onDateSelect(date);
   };
 
-  // Обработчик drag & drop для календаря
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
 
-    const { source, destination } = result;
-    
-    // Если перетаскиваем в тот же день, ничего не делаем
-    if (source.droppableId === destination.droppableId) return;
-
-    // Получаем текст задачи из перетаскиваемого элемента
-    const taskText = result.draggableId;
-    
-    // Получаем даты
-    const sourceDate = new Date(source.droppableId);
-    const targetDate = new Date(destination.droppableId);
-    
-    console.log(`Перемещаем задачу "${taskText}" с ${sourceDate.toDateString()} на ${targetDate.toDateString()}`);
-    
-    // Получаем текущее содержимое заметок из Redux store
-    const state = store.getState();
-    const sourceNoteContent = selectNoteContentByDate(state, sourceDate.toDateString()) || '';
-    const targetNoteContent = selectNoteContentByDate(state, targetDate.toDateString()) || '';
-    
-    // Удаляем задачу из исходного дня
-    const sourceNewContent = sourceNoteContent.replace(
-      new RegExp(`^- \\[[ xX]\\] ${taskText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'gm'),
-      ''
-    ).replace(/\n\s*\n/g, '\n').trim();
-    
-    // Добавляем задачу в целевой день
-    const targetNewContent = targetNoteContent + (targetNoteContent ? '\n' : '') + `- [ ] ${taskText}`;
-    
-    // Сохраняем изменения через Redux
-    dispatch(updateNote({ date: sourceDate, content: sourceNewContent }));
-    dispatch(updateNote({ date: targetDate, content: targetNewContent }));
-    
-    console.log(`Задача "${taskText}" успешно перемещена`);
-  };
 
   // Функция для буферизации заметок больше не нужна - все заметки загружаются при инициализации
 
@@ -494,18 +457,13 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
       }
       
       return (
-        <div style={style}>
-          <Droppable droppableId={item.date.toDateString()}>
-            {(provided, snapshot) => (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  backgroundColor: snapshot.isDraggingOver ? 'rgba(0, 0, 255, 0.1)' : 'transparent'
-                }}
-              >
+                 <div style={style}>
+           <div
+             style={{
+               width: '100%',
+               height: '100%'
+             }}
+           >
                 <Tooltip
                   title={noteContent ? `${formatDate(item.date)}\n\nПревью заметки:\n${noteContent.substring(0, 200)}${noteContent.length > 200 ? '...' : ''}` : `${formatDate(item.date)}\n\nНет заметки`}
                   placement="left"
@@ -552,13 +510,10 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
                 </div>
               )}
 
-            </DaySquare>
-          </Tooltip>
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </div>
+                         </DaySquare>
+           </Tooltip>
+           </div>
+         </div>
       );
     }
   }, [items, isToday, isWeekend, isSelected, handleDayClick, formatDate, getDayName, getMonthName, onNotePreview]);
@@ -607,7 +562,6 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
   }, [generateItems, settings, dispatch]);
 
     return (
-    <DragDropContext onDragEnd={handleDragEnd}>
       <CalendarContainer
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -682,7 +636,6 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
         <KeyboardArrowDownIcon />
       </ScrollButton>
     </CalendarContainer>
-    </DragDropContext>
   );
 };
 

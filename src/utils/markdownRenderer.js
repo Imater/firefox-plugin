@@ -1,5 +1,13 @@
 import { marked } from 'marked';
 
+// Глобальное хранилище использованных горячих клавиш
+let usedHotkeys = new Set();
+
+// Функция для сброса использованных клавиш
+export const resetUsedHotkeys = () => {
+  usedHotkeys.clear();
+};
+
 // Функция для получения открытых вкладок
 const getOpenTabs = async () => {
   try {
@@ -24,7 +32,10 @@ const isUrlOpenInTab = (url, openTabs) => {
   });
 };
 
-export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, lettersOnly = false, currentBuffer = '', openTabs = []) => {
+export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, lettersOnly = false, currentBuffer = '', openTabs = [], isDailyNotes = false) => {
+  // Сбрасываем использованные клавиши в начале каждой генерации
+  resetUsedHotkeys();
+  
   // Настраиваем marked для добавления специального класса к ссылкам
   const renderer = new marked.Renderer();
   renderer.link = (href, title, text) => {
@@ -44,7 +55,9 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
       const isChecked = checked.toLowerCase() === 'x';
       const className = `task-checkbox ${isChecked ? 'checked' : 'unchecked'}`;
       const checkboxSymbol = isChecked ? '☑' : '☐';
-      return `<span class="${className}" data-checked="${isChecked}" data-text="${text}" draggable="true" data-draggable-id="${text}">${checkboxSymbol} ${text}</span>`;
+      // Экранируем кавычки в data-text атрибуте
+      const escapedText = text.replace(/"/g, '&quot;');
+      return `<span class="${className}" data-checked="${isChecked}" data-text="${escapedText}">${checkboxSymbol} ${text}</span>`;
     }
   );
 
@@ -63,57 +76,76 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
     const letters = 'abcdefghijklmnopqrstuvwxyz';
     let hotkeyIndex = startIndex;
 
-    // Резервируем последние 4 буквы для двойных меток
-    const reservedLetters = letters.slice(-4); // w, x, y, z
-    const availableSingleLetters = letters.slice(0, -4); // a-v
-
-    // Функция для генерации уникального символа без конфликтов
+    // Функция для генерации уникального символа
     const getUniqueSymbol = (index) => {
-      if (lettersOnly) {
-        // Только буквы: сначала используем доступные одинарные буквы
-        if (index < availableSingleLetters.length) {
-          return availableSingleLetters[index];
+      let symbol;
+      let attempts = 0;
+      const maxAttempts = 100; // Защита от бесконечного цикла
+      
+      do {
+        if (isDailyNotes) {
+          // Для ежедневных заметок: все метки начинаются с "d" и являются двойными или тройными
+          if (index < 26) {
+            // Первые 26 элементов: d + буква (da, db, dc, ..., dz)
+            symbol = 'd' + letters[index];
+          } else if (index < 676) {
+            // Следующие 650 элементов: d + две буквы (daa, dab, ..., dzz)
+            const secondIndex = Math.floor((index - 26) / 26);
+            const thirdIndex = (index - 26) % 26;
+            symbol = 'd' + letters[secondIndex] + letters[thirdIndex];
+          } else {
+            // Остальные: d + три буквы (daaa, daab, ..., dzzz)
+            const remainingIndex = index - 676;
+            const secondIndex = Math.floor(remainingIndex / 676);
+            const thirdIndex = Math.floor((remainingIndex % 676) / 26);
+            const fourthIndex = remainingIndex % 26;
+            symbol = 'd' + letters[secondIndex] + letters[thirdIndex] + letters[fourthIndex];
+          }
+        } else {
+          // Для основного контента: обычная логика без буквы "d"
+          const availableLetters = letters.replace('d', ''); // Исключаем "d"
+          
+          if (lettersOnly) {
+            // Только буквы (без "d")
+            if (index < availableLetters.length) {
+              symbol = availableLetters[index];
+            } else {
+              // Двойные метки
+              const doubleIndex = index - availableLetters.length;
+              const firstIndex = Math.floor(doubleIndex / availableLetters.length);
+              const secondIndex = doubleIndex % availableLetters.length;
+              symbol = availableLetters[firstIndex] + availableLetters[secondIndex];
+            }
+          } else {
+            // Смешанный режим: сначала цифры, затем буквы (без "d")
+            if (index < digits.length) {
+              symbol = digits[index];
+            } else {
+              const letterIndex = index - digits.length;
+              if (letterIndex < availableLetters.length) {
+                symbol = availableLetters[letterIndex];
+              } else {
+                // Двойные метки
+                const doubleIndex = letterIndex - availableLetters.length;
+                const firstIndex = Math.floor(doubleIndex / availableLetters.length);
+                const secondIndex = doubleIndex % availableLetters.length;
+                symbol = availableLetters[firstIndex] + availableLetters[secondIndex];
+              }
+            }
+          }
         }
         
-        // Затем генерируем двойные метки, используя зарезервированные буквы
-        const doubleIndex = index - availableSingleLetters.length;
-        const firstIndex = Math.floor(doubleIndex / reservedLetters.length);
-        const secondIndex = doubleIndex % reservedLetters.length;
-        
-        if (firstIndex < reservedLetters.length) {
-          return reservedLetters[firstIndex] + reservedLetters[secondIndex];
+        attempts++;
+        if (attempts >= maxAttempts) {
+          console.warn('Превышено максимальное количество попыток генерации символа');
+          symbol = isDailyNotes ? 'dx' : 'x'; // Fallback символ
+          break;
         }
-        
-        // Если и это исчерпано — используем трехсимвольные
-        const tripleIndex = doubleIndex - (reservedLetters.length * reservedLetters.length);
-        const thirdIndex = tripleIndex % reservedLetters.length;
-        return reservedLetters[0] + reservedLetters[1] + reservedLetters[thirdIndex];
-      } else {
-        // Смешанный режим: сначала цифры, затем буквы
-        if (index < digits.length) {
-          return digits[index];
-        }
-        
-        // Затем используем доступные одинарные буквы
-        const letterIndex = index - digits.length;
-        if (letterIndex < availableSingleLetters.length) {
-          return availableSingleLetters[letterIndex];
-        }
-        
-        // После исчерпания одинарных символов — генерируем двойные
-        const doubleIndex = letterIndex - availableSingleLetters.length;
-        const firstIndex = Math.floor(doubleIndex / reservedLetters.length);
-        const secondIndex = doubleIndex % reservedLetters.length;
-        
-        if (firstIndex < reservedLetters.length) {
-          return reservedLetters[firstIndex] + reservedLetters[secondIndex];
-        }
-        
-        // Если и это исчерпано — используем трехсимвольные
-        const tripleIndex = doubleIndex - (reservedLetters.length * reservedLetters.length);
-        const thirdIndex = tripleIndex % reservedLetters.length;
-        return reservedLetters[0] + reservedLetters[1] + reservedLetters[thirdIndex];
-      }
+      } while (usedHotkeys.has(symbol));
+      
+      // Резервируем символ
+      usedHotkeys.add(symbol);
+      return symbol;
     };
     
     // Функция для создания HTML символа горячей клавиши с подсветкой
@@ -127,7 +159,7 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
       const isOpenInTab = url ? isUrlOpenInTab(url, openTabs) : false;
       
       if (symbol.length === 1) {
-        // Одинарная метка
+        // Одинарная метка (только для основного контента)
         const isHighlighted = currentBuffer === symbol;
         const isOpenTab = isOpenInTab;
         const displaySymbol = formatSymbolForDisplay(symbol);
@@ -138,25 +170,23 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
         
         return `<span class="${className}">${displaySymbol}</span>`;
       } else {
-        // Двойная метка
-        const firstChar = symbol[0];
-        const secondChar = symbol[1];
-        const isFirstHighlighted = currentBuffer === firstChar;
-        const isBothHighlighted = currentBuffer === symbol;
+        // Двойная или тройная метка
+        const isHighlighted = currentBuffer === symbol;
+        const isFirstHighlighted = currentBuffer === symbol[0];
         const isOpenTab = isOpenInTab;
         
-        const displayFirstChar = formatSymbolForDisplay(firstChar);
-        const displaySecondChar = formatSymbolForDisplay(secondChar);
-        const displaySymbol = displayFirstChar + displaySecondChar;
+        const displaySymbol = symbol.split('').map(formatSymbolForDisplay).join('');
         
         let className = 'hotkey-symbol';
-        if (isBothHighlighted) className += ' hotkey-highlighted';
+        if (isHighlighted) className += ' hotkey-highlighted';
         if (isOpenTab) className += ' hotkey-open-tab';
         
-        if (isBothHighlighted) {
+        if (isHighlighted) {
           return `<span class="${className}">${displaySymbol}</span>`;
         } else if (isFirstHighlighted) {
-          return `<span class="hotkey-symbol${isOpenTab ? ' hotkey-open-tab' : ''}"><span class="hotkey-highlighted">${displayFirstChar}</span>${displaySecondChar}</span>`;
+          const firstChar = formatSymbolForDisplay(symbol[0]);
+          const restChars = symbol.slice(1).split('').map(formatSymbolForDisplay).join('');
+          return `<span class="hotkey-symbol${isOpenTab ? ' hotkey-open-tab' : ''}"><span class="hotkey-highlighted">${firstChar}</span>${restChars}</span>`;
         } else {
           return `<span class="${className}">${displaySymbol}</span>`;
         }
@@ -215,7 +245,9 @@ export const countHotkeyTargets = (content) => {
       const isChecked = checked.toLowerCase() === 'x';
       const className = `task-checkbox ${isChecked ? 'checked' : 'unchecked'}`;
       const checkboxSymbol = isChecked ? '☑' : '☐';
-      return `<span class="${className}" data-checked="${isChecked}" data-text="${text}">${checkboxSymbol} ${text}</span>`;
+      // Экранируем кавычки в data-text атрибуте
+      const escapedText = text.replace(/"/g, '&quot;');
+      return `<span class="${className}" data-checked="${isChecked}" data-text="${escapedText}">${checkboxSymbol} ${text}</span>`;
     }
   );
   

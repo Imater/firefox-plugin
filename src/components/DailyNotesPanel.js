@@ -9,7 +9,7 @@ import {
   Typography,
   Button
 } from '@mui/material';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+
 import { useAppDispatch } from '../store/hooks';
 import { updateNote } from '../store/calendarNotesSlice';
 import { 
@@ -235,6 +235,9 @@ const DailyNotesPanel = ({
   const panelRef = useRef(null);
   const dispatch = useAppDispatch();
 
+  // Делаем функцию handleDateChange доступной через ref
+  const handleDateChangeRef = useRef(null);
+
   // Обновляем editContent при изменении content
   useEffect(() => {
     setEditContent(content);
@@ -290,6 +293,15 @@ const DailyNotesPanel = ({
     onDateChange(newDate);
   };
 
+  // Экспортируем функцию handleDateChange через ref
+  useEffect(() => {
+    handleDateChangeRef.current = handleDateChange;
+    // Делаем доступной через window для App.jsx
+    window.dailyNotesPanelRef = {
+      handleDateChange: handleDateChange
+    };
+  }, [currentDate, onDateChange, onScrollToDate]);
+
   // Получение названия типа заметки
   const getNoteTypeName = (type) => {
     return 'Ежедневные';
@@ -327,44 +339,7 @@ const DailyNotesPanel = ({
     setIsEditing(false);
   };
 
-  // Обработка drag & drop для галочек
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
 
-    const { source, destination } = result;
-    
-    // Если перетаскиваем в тот же день, ничего не делаем
-    if (source.droppableId === destination.droppableId) return;
-
-    // Получаем текст задачи из перетаскиваемого элемента
-    const taskText = result.draggableId;
-    
-    // Удаляем задачу из исходного дня
-    const currentContent = previewContent || content;
-    const checkboxPattern = new RegExp(`^- \\[[ xX]\\] (.+)$`, 'gm');
-    const newContent = currentContent.replace(checkboxPattern, (match, text) => {
-      if (text === taskText) {
-        return ''; // Удаляем строку
-      }
-      return match;
-    }).replace(/\n\s*\n/g, '\n').trim(); // Убираем пустые строки
-
-    // Сохраняем изменения в текущем дне
-    onSave(newContent);
-    dispatch(updateNote({ date: currentDate, content: newContent }));
-
-    // Добавляем задачу в целевой день
-    const targetDate = new Date(destination.droppableId);
-    const targetDateString = targetDate.toDateString();
-    
-    // Здесь нужно будет добавить логику для добавления задачи в целевой день
-    // Пока просто показываем уведомление
-    setSnackbar({ 
-      open: true, 
-      message: `Задача "${taskText}" перемещена на ${targetDate.toLocaleDateString()}`, 
-      severity: 'info' 
-    });
-  };
 
   // Обработка изменения размера панели
   const handleMouseDown = (e) => {
@@ -414,8 +389,7 @@ const DailyNotesPanel = ({
   if (!isOpen) return null;
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing}>
+    <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing}>
       <ResizeHandle onMouseDown={handleMouseDown}>
         <DragIcon className="drag-icon" />
       </ResizeHandle>
@@ -472,49 +446,51 @@ const DailyNotesPanel = ({
           </Box>
         </div>
         
-        <div className="toolbar-right">
-          {!isEditing && (
-            <Typography className="date-display">
-              {formatDate(currentDate)}
-            </Typography>
-          )}
-          
-          {isEditing ? (
-            <div className="editor-actions">
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                disabled={isSaving}
-                size="small"
-                sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
-              >
-                {isSaving ? 'Сохранение...' : 'Сохранить'}
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<CancelIcon />}
-                onClick={handleCancel}
-                disabled={isSaving}
-                size="small"
-                sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
-              >
-                Отмена
-              </Button>
-            </div>
-          ) : (
-            <Tooltip title="Редактировать">
-              <IconButton 
-                size="small" 
-                onClick={() => setIsEditing(true)}
-                sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
-              >
-                <EditIcon sx={{ fontSize: '16px' }} />
-              </IconButton>
-            </Tooltip>
-          )}
-        </div>
+                 <div className="toolbar-right">
+           {!isEditing && (
+             <Typography className="date-display">
+               {formatDate(currentDate)}
+             </Typography>
+           )}
+           
+           {isEditing && (
+             <div className="editor-actions">
+               <Button
+                 variant="contained"
+                 color="primary"
+                 startIcon={<SaveIcon />}
+                 onClick={handleSave}
+                 disabled={isSaving}
+                 size="small"
+                 sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
+               >
+                 {isSaving ? 'Сохранение...' : 'Сохранить'}
+               </Button>
+               <Button
+                 variant="outlined"
+                 startIcon={<CancelIcon />}
+                 onClick={handleCancel}
+                 disabled={isSaving}
+                 size="small"
+                 sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
+               >
+                 Отмена
+               </Button>
+             </div>
+           )}
+           
+           {!isEditing && (
+             <Tooltip title="Редактировать">
+               <IconButton 
+                 size="small" 
+                 onClick={() => setIsEditing(true)}
+                 sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+               >
+                 <EditIcon sx={{ fontSize: '16px' }} />
+               </IconButton>
+             </Tooltip>
+           )}
+         </div>
       </Toolbar>
       
       <ContentContainer>
@@ -537,11 +513,12 @@ const DailyNotesPanel = ({
             dangerouslySetInnerHTML={renderMarkdown(
               previewContent || content, 
               !isEditing && showHotkeys, 
-              20, 
+              0, 
               lettersOnlyHotkeys, 
               currentHotkeyBuffer, 
-              openTabs
-            )} // DailyNotes начинается с индекса 20 для уникальности
+              openTabs,
+              true
+            )} // DailyNotes - isDailyNotes = true
             onClick={(e) => {
               if (e.target.classList.contains('wiki-link')) {
                 e.preventDefault();
@@ -646,10 +623,9 @@ const DailyNotesPanel = ({
         >
           {snackbar.message}
         </Alert>
-      </Snackbar>
-    </PanelContainer>
-    </DragDropContext>
-  );
+             </Snackbar>
+     </PanelContainer>
+   );
 };
 
 export default DailyNotesPanel;

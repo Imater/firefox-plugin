@@ -23,7 +23,7 @@ import { useTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useSettings';
 
 // Utils
-import { renderMarkdown, countHotkeyTargets } from './utils/markdownRenderer';
+import { renderMarkdown, countHotkeyTargets, resetUsedHotkeys } from './utils/markdownRenderer';
 
 // Services
 import { loadCurrentPage, saveCurrentPage } from './services/pageService';
@@ -290,24 +290,26 @@ function App() {
              return;
            }
            
-           // Обработка стрелок вверх и вниз для навигации по ежедневным заметкам
-           if ((key === 'arrowup' || key === 'up') && !isEditing && !isDailyNotesEditing) {
-             e.preventDefault();
-             const newDate = new Date(currentDailyDate);
-             newDate.setDate(newDate.getDate() - 1);
-             handleDailyDateChange(newDate);
-             resetBuffer();
-             return;
-           }
-           
-           if ((key === 'arrowdown' || key === 'down') && !isEditing && !isDailyNotesEditing) {
-             e.preventDefault();
-             const newDate = new Date(currentDailyDate);
-             newDate.setDate(newDate.getDate() + 1);
-             handleDailyDateChange(newDate);
-             resetBuffer();
-             return;
-           }
+                       // Обработка стрелок вверх и вниз для навигации по ежедневным заметкам
+            if ((key === 'arrowup' || key === 'up') && !isEditing && !isDailyNotesEditing) {
+              e.preventDefault();
+              // Эмулируем нажатие кнопки "вчера" в DailyNotesPanel
+              if (window.dailyNotesPanelRef && window.dailyNotesPanelRef.handleDateChange) {
+                window.dailyNotesPanelRef.handleDateChange('yesterday');
+              }
+              resetBuffer();
+              return;
+            }
+            
+            if ((key === 'arrowdown' || key === 'down') && !isEditing && !isDailyNotesEditing) {
+              e.preventDefault();
+              // Эмулируем нажатие кнопки "завтра" в DailyNotesPanel
+              if (window.dailyNotesPanelRef && window.dailyNotesPanelRef.handleDateChange) {
+                window.dailyNotesPanelRef.handleDateChange('tomorrow');
+              }
+              resetBuffer();
+              return;
+            }
       
            // Игнорируем модификаторы
            if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -415,10 +417,11 @@ function App() {
 
 
 
-  const handleDailyDateChange = async (newDate) => {
-    setCurrentDailyDate(newDate);
-    await handleLoadDailyNote(newDate);
-  };
+      const handleDailyDateChange = async (newDate) => {
+      setCurrentDailyDate(newDate);
+      setSelectedDate(newDate); // Обновляем выбранную дату в календаре
+      await handleLoadDailyNote(newDate);
+    };
 
   const handleDailyNotesPanelHeightChange = (newHeight) => {
     setSettings({ ...settings, dailyNotesPanelHeight: newHeight });
@@ -539,7 +542,8 @@ function App() {
             dailyNotesPanelHeight={settings.dailyNotesPanelHeight}
           >
             <div 
-              dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing && settings.enableHotkeys, 0, settings.lettersOnlyHotkeys, currentHotkeyBuffer, openTabs)} // Основной редактор начинается с индекса 0
+                             key={`content-${content.length}-${content.substring(0, 50)}`} // Простой ключ без Date.now()
+                             dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing && settings.enableHotkeys, 0, settings.lettersOnlyHotkeys, currentHotkeyBuffer, openTabs, false)} // Основной редактор - не daily notes
               onClick={(e) => {
                 if (e.target.classList.contains('wiki-link')) {
                   e.preventDefault();
@@ -580,6 +584,7 @@ function App() {
         )}
 
                        <DailyNotesPanel
+                 key={`daily-notes-${dailyNoteContent.length}-${dailyNoteContent.substring(0, 50)}-${currentDailyDate.toDateString()}`} // Простой ключ без Date.now()
                  isOpen={dailyNotesPanelOpen}
                  height={settings.dailyNotesPanelHeight}
                  onHeightChange={handleDailyNotesPanelHeightChange}
@@ -589,7 +594,7 @@ function App() {
                  onSave={handleSaveDailyNote}
                  noteType={currentNoteType}
                  showHotkeys={!isEditing && !isDailyNotesEditing && settings.enableHotkeys} // Показываем метки когда оба редактора не в режиме редактирования и горячие клавиши включены
-                 startIndex={!isEditing && !isDailyNotesEditing ? countHotkeyTargets(content) : 0}
+                                   startIndex={!isEditing && !isDailyNotesEditing ? 0 : 0} // Используем общую систему резервирования
                  onEditingChange={setIsDailyNotesEditing} // Передаем функцию для обновления состояния редактирования
                  lettersOnlyHotkeys={settings.lettersOnlyHotkeys}
                  currentHotkeyBuffer={currentHotkeyBuffer}
