@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { KeyboardArrowUp as ArrowUpIcon } from '@mui/icons-material';
 import { styled } from '@mui/system';
+import { useTranslation } from '../utils/i18n';
 
 const FooterContainer = styled(Box)(({ theme, isOpen }) => ({
   height: '24px',
@@ -42,14 +43,15 @@ const FooterContainer = styled(Box)(({ theme, isOpen }) => ({
 }));
 
 const Footer = ({ isOpen, onToggle, height, noteType = 'daily', isEditing = false, isDailyNotesEditing = false }) => {
+  const { t } = useTranslation();
   const getNoteTypeName = (type) => {
-    return 'Ежедневные';
+    return t('daily.notes');
   };
 
   return (
     <FooterContainer isOpen={isOpen} onClick={onToggle}>
       <div className="footer-content">
-        <span>{getNoteTypeName(noteType)} заметки</span>
+        <span>{t('footer.toggle_daily')}</span>
         <ArrowUpIcon className="arrow-icon" fontSize="small" />
         {!isEditing && !isDailyNotesEditing && <span className="hotkey-symbol" style={{ marginLeft: '4px' }}>+</span>}
       </div>

@@ -2,7 +2,7 @@ import './chrome-mock';
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ThemeProvider } from '@mui/material/styles';
-import { Box } from '@mui/material';
+import { Box, Alert, Paper, Typography, Button, Link } from '@mui/material';
 
 // Themes
 import lightTheme from './themes/lightTheme';
@@ -16,7 +16,7 @@ import MarkdownEditor from './components/MarkdownEditor';
 import Footer from './components/Footer';
 import DailyNotesPanel from './components/DailyNotesPanel';
 import LinkPreview from './components/LinkPreview';
-import CalendarPanel from './components/CalendarPanel';
+
 
 // Hooks
 import { useTheme } from './hooks/useTheme';
@@ -24,11 +24,11 @@ import { useSettings } from './hooks/useSettings';
 import { usePomodoroTimer } from './hooks/usePomodoroTimer';
 import { styled } from '@mui/system';
 
-const PomodoroToolbar = styled(Box)(({ theme, isVisible, dailyNotesPanelOpen, showCalendarPanel, dailyNotesPanelHeight }) => ({
+const PomodoroToolbar = styled(Box)(({ theme, isVisible, dailyNotesPanelOpen, dailyNotesPanelHeight }) => ({
   position: 'fixed',
   bottom: dailyNotesPanelOpen ? '25px' : '24px', // Над футером панели ежедневных заметок (25px когда открыта, 24px когда свернута)
   left: 0,
-  right: showCalendarPanel ? '100px' : '0px', // Отступ 100px если календарная панель открыта, иначе 0
+  right: '0px', // Убираем отступ для календарной панели, так как она теперь внутри DailyNotesPanel
   height: isVisible ? '40px' : '0px',
   backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
   borderTop: `1px solid ${theme.palette.divider}`,
@@ -83,10 +83,12 @@ import {
   saveDailyNote, 
   savePeriodicNote
 } from './services/dailyNotesService';
+import { loadLanguage, setLanguage, useTranslation } from './utils/i18n';
 
 
 
 function App() {
+  const { t } = useTranslation();
   const [content, setContent] = useState('');
   const [currentPage, setCurrentPage] = useState('index.md');
   const [showSettings, setShowSettings] = useState(false);
@@ -105,11 +107,53 @@ function App() {
   const [scrollToTodayFunction, setScrollToTodayFunction] = useState(null);
   const [scrollToDateFunction, setScrollToDateFunction] = useState(null);
   const [calendarNotePreview, setCalendarNotePreview] = useState('');
+  const [apiStatus, setApiStatus] = useState({ isConnected: true, isChecking: true, error: null });
 
   
   const { isDarkMode, saveTheme } = useTheme();
   const { settings, setSettings, saveSettings } = useSettings();
   const pomodoroTimer = usePomodoroTimer(settings.pomodoroMinutes || 25);
+
+  // Функция для проверки работоспособности API Obsidian
+  const checkObsidianAPI = async () => {
+    if (!settings.useApi) {
+      setApiStatus({ isConnected: true, isChecking: false, error: null });
+      return;
+    }
+
+    setApiStatus({ isConnected: false, isChecking: true, error: null });
+    
+    try {
+      // Проверяем доступность конкретного файла index.md в папке bookmarks
+      const testUrl = 'http://127.0.0.1:27123/vault/bookmarks/index.md';
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${settings.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      });
+
+      if (response.ok) {
+        setApiStatus({ isConnected: true, isChecking: false, error: null });
+        console.log('Obsidian API is working correctly - index.md file is accessible');
+      } else if (response.status === 404) {
+        throw new Error('Файл bookmarks/index.md не найден в Obsidian');
+      } else if (response.status === 401) {
+        throw new Error('Неверный API ключ');
+      } else {
+        throw new Error(`API responded with status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Obsidian API check failed:', error);
+      setApiStatus({ 
+        isConnected: false, 
+        isChecking: false, 
+        error: error.message 
+      });
+    }
+  };
 
   // Функция для получения открытых вкладок
   const getOpenTabs = async () => {
@@ -123,18 +167,41 @@ function App() {
     }
   };
 
+  // Инициализация языка при запуске
+  useEffect(() => {
+    const initializeLanguage = async () => {
+      const savedLanguage = await loadLanguage();
+      if (savedLanguage !== settings.language) {
+        setSettings(prev => ({ ...prev, language: savedLanguage }));
+      }
+    };
+    initializeLanguage();
+  }, []);
+
+  // Обновление языка при изменении настроек
+  useEffect(() => {
+    if (settings.language) {
+      setLanguage(settings.language);
+    }
+  }, [settings.language]);
+
+  // Проверка API при изменении настроек
+  useEffect(() => {
+    if (settings.useApi && settings.apiUrl && settings.apiKey) {
+      checkObsidianAPI();
+    }
+  }, [settings.useApi, settings.apiUrl, settings.apiKey]);
+
   // Инициализация - загружаем последнюю открытую страницу и состояние ежедневных заметок
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const result = await chrome.storage.local.get(['lastOpenedPage', 'dailyNotesPanelOpen', 'showCalendarPanel']);
+        const result = await chrome.storage.local.get(['lastOpenedPage', 'dailyNotesPanelOpen']);
         const lastPage = result.lastOpenedPage || 'index.md';
         const dailyNotesOpen = result.dailyNotesPanelOpen || false;
         
         // Устанавливаем календарную панель по умолчанию, если настройка не найдена
-        if (result.showCalendarPanel === undefined) {
-          await chrome.storage.local.set({ showCalendarPanel: true });
-        }
+        
         
         setCurrentPage(lastPage);
         setDailyNotesPanelOpen(dailyNotesOpen);
@@ -568,7 +635,7 @@ function App() {
                flexDirection: 'column',
                overflowX: 'hidden',
                overflowY: 'hidden',
-               marginRight: settings.showCalendarPanel ? '100px' : '0px' // Отступ для календарной панели
+               marginRight: '0px' // Убираем отступ для календарной панели, так как она теперь внутри DailyNotesPanel
              }}>
         <Header 
           onRefresh={handleLoadCurrentPage}
@@ -582,6 +649,65 @@ function App() {
           isDarkMode={isDarkMode}
           isWaitingForSecondKey={isWaitingForSecondKey}
         />
+
+        {/* Предупреждение о недоступности API Obsidian */}
+        {settings.useApi && !apiStatus.isConnected && !apiStatus.isChecking && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              margin: '8px 16px', 
+              borderRadius: '8px',
+              '& .MuiAlert-message': {
+                width: '100%'
+              }
+            }}
+            action={
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={checkObsidianAPI}
+                sx={{ minWidth: 'auto' }}
+              >
+                Повторить
+              </Button>
+            }
+          >
+            <Typography variant="body2" sx={{ fontWeight: 'bold', marginBottom: '4px' }}>
+              {t('api.warning.title')}
+            </Typography>
+            <Typography variant="body2" sx={{ marginBottom: '8px' }}>
+              {t('api.warning.step1')}{' '}
+              <Link 
+                href="https://github.com/coddingtonbear/obsidian-local-rest-api" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                sx={{ fontWeight: 'bold' }}
+              >
+                Local REST API for Obsidian
+              </Link>
+              {' '}и{' '}
+              <Link 
+                href="https://github.com/liamcain/obsidian-periodic-notes" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                sx={{ fontWeight: 'bold' }}
+              >
+                Periodic Notes
+              </Link>
+            </Typography>
+            <Typography variant="body2" sx={{ marginBottom: '8px' }}>
+              {t('api.warning.step2')}
+            </Typography>
+            <Typography variant="body2" sx={{ marginBottom: '8px' }}>
+              {t('api.warning.step3')}
+            </Typography>
+            {apiStatus.error && (
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                {t('api.warning.error')} {apiStatus.error}
+              </Typography>
+            )}
+          </Alert>
+        )}
 
         {showSettings && (
           <Settings 
@@ -671,6 +797,10 @@ function App() {
                  onScrollToDate={scrollToDateFunction ? (date) => scrollToDateFunction(date) : null}
                  notePreview={calendarNotePreview}
                  pomodoroTimer={pomodoroTimer}
+                 settings={settings}
+                 onDateSelect={handleDateSelect}
+                 selectedDate={selectedDate}
+                 onCalendarNotePreview={setCalendarNotePreview}
                />
 
         <Footer
@@ -687,23 +817,13 @@ function App() {
                  isVisible={!!hoveredLink && !isEditing && !isDailyNotesEditing}
                />
 
-               {settings.showCalendarPanel && (
-                 <CalendarPanel
-                   onDateSelect={handleDateSelect}
-                   currentDate={selectedDate}
-                   onTodayClick={setScrollToTodayFunction}
-                   onScrollToDate={setScrollToDateFunction}
-                   settings={settings}
-                   onNotePreview={setCalendarNotePreview}
-                 />
-               )}
+
 
              </Box>
              
                            <PomodoroToolbar 
                 isVisible={pomodoroTimer && pomodoroTimer.activeTask && pomodoroTimer.isRunning}
                 dailyNotesPanelOpen={dailyNotesPanelOpen}
-                showCalendarPanel={settings.showCalendarPanel}
                 dailyNotesPanelHeight={settings.dailyNotesPanelHeight}
               >
                {pomodoroTimer && pomodoroTimer.activeTask && pomodoroTimer.isRunning && (

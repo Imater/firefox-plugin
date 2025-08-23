@@ -8,6 +8,7 @@ import InfiniteLoader from 'react-window-infinite-loader';
 
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { store } from '../store';
+import { useTranslation } from '../utils/i18n';
 import { 
   fetchMultipleNotes, 
   selectTaskCountsByDate, 
@@ -16,16 +17,17 @@ import {
   updateNote
 } from '../store/calendarNotesSlice';
 
-const CalendarContainer = styled(Box)(({ theme }) => ({
-  position: 'fixed',
-  right: 0,
-  top: 0,
-  width: '100px',
-  height: '100vh',
+const CalendarContainer = styled(Box)(({ theme, isEmbedded }) => ({
+  position: isEmbedded ? 'relative' : 'fixed',
+  right: isEmbedded ? 'auto' : 0,
+  top: isEmbedded ? 'auto' : 0,
+  width: isEmbedded ? '60px' : '100px',
+  height: isEmbedded ? '100%' : '100vh',
   backgroundColor: theme.palette.background.paper,
   display: 'flex',
   flexDirection: 'column',
-  zIndex: 1000,
+  zIndex: isEmbedded ? 1 : 1000,
+  paddingTop: isEmbedded ? '40px' : '0px', // Отступ сверху для тулбара в embedded режиме
   // Улучшаем touch-взаимодействие
   touchAction: 'pan-y',
   userSelect: 'none',
@@ -34,9 +36,9 @@ const CalendarContainer = styled(Box)(({ theme }) => ({
   WebkitTapHighlightColor: 'transparent',
 }));
 
-const ScrollButton = styled(IconButton)(({ theme }) => ({
-  width: '100px',
-  height: '30px',
+const ScrollButton = styled(IconButton)(({ theme, isEmbedded }) => ({
+  width: isEmbedded ? '60px' : '100px',
+  height: '20px',
   borderRadius: 0,
   color: theme.palette.text.primary,
   '&:hover': {
@@ -46,15 +48,15 @@ const ScrollButton = styled(IconButton)(({ theme }) => ({
 
 
 
-const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected, isFuture, isPast }) => ({
-  width: '100px',
-  height: '100px',
+const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected, isFuture, isPast, isEmbedded }) => ({
+  width: isEmbedded ? '60px' : '100px',
+  height: isEmbedded ? '50px' : '100px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
-  fontSize: '13px',
+  fontSize: isEmbedded ? '10px' : '13px',
   fontWeight: 'bold',
   borderBottom: `1px solid ${theme.palette.mode === 'dark' ? '#666666' : '#999999'}`,
   borderTop: `1px solid ${theme.palette.mode === 'dark' ? '#cccccc' : '#e0e0e0'}`,
@@ -76,37 +78,37 @@ const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected, isFuture
     backgroundColor: theme.palette.action.hover,
   },
   '& .day-number': {
-    fontSize: '19px',
+    fontSize: isEmbedded ? '14px' : '19px',
     fontWeight: 'bold',
     lineHeight: 1,
   },
   '& .day-name': {
-    fontSize: '11px',
+    fontSize: isEmbedded ? '8px' : '11px',
     textTransform: 'uppercase',
     lineHeight: 1,
-    marginTop: '2px',
+    marginTop: isEmbedded ? '1px' : '2px',
     color: isWeekend ? (isPast ? theme.palette.error.dark : theme.palette.error.main) : 'inherit',
   },
   '& .days-difference': {
-    fontSize: '11px',
+    fontSize: isEmbedded ? '8px' : '11px',
     lineHeight: 1,
-    marginTop: '1px',
+    marginTop: isEmbedded ? '0px' : '1px',
     opacity: 0.9,
     fontWeight: 'bold',
   },
   '& .tasks-indicator': {
     position: 'absolute',
-    bottom: '4px',
+    bottom: isEmbedded ? '2px' : '4px',
     left: '50%',
     transform: 'translateX(-50%)',
-    fontSize: '11px',
+    fontSize: isEmbedded ? '8px' : '11px',
     fontWeight: 'normal',
     textAlign: 'center',
     lineHeight: 1,
     color: isToday ? theme.palette.warning.main : theme.palette.text.secondary,
   },
   '& .tasks-text': {
-    fontSize: '11px',
+    fontSize: isEmbedded ? '8px' : '11px',
     lineHeight: 1,
   },
   '& .checked-count': {
@@ -127,9 +129,9 @@ const DaySquare = styled(Box)(({ theme, isToday, isWeekend, isSelected, isFuture
   },
 }));
 
-const MonthHeader = styled(Box)(({ theme }) => ({
-  width: '100px',
-  height: '50px',
+const MonthHeader = styled(Box)(({ theme, isEmbedded }) => ({
+  width: isEmbedded ? '60px' : '100px',
+  height: isEmbedded ? '30px' : '50px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -137,24 +139,24 @@ const MonthHeader = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.primary.main,
   color: theme.palette.primary.contrastText,
   borderBottom: `2px solid ${theme.palette.divider}`,
-  fontSize: '10px',
+  fontSize: isEmbedded ? '8px' : '10px',
   fontWeight: 'bold',
   textAlign: 'center',
   flexShrink: 0,
   '& .month-name': {
-    fontSize: '11px',
+    fontSize: isEmbedded ? '9px' : '11px',
     fontWeight: 'bold',
     lineHeight: 1,
   },
   '& .year': {
-    fontSize: '9px',
+    fontSize: isEmbedded ? '7px' : '9px',
     lineHeight: 1,
-    marginTop: '2px',
+    marginTop: isEmbedded ? '1px' : '2px',
     opacity: 0.9,
   },
 }));
 
-const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate, settings, onNotePreview }) => {
+const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate, settings, onNotePreview, isEmbedded = false, containerHeight }) => {
   const [items, setItems] = useState([]);
   const [hasNextPage, setHasNextPage] = useState(true);
   const [isNextPageLoading, setIsNextPageLoading] = useState(false);
@@ -164,6 +166,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
   // Redux hooks
   const dispatch = useAppDispatch();
   const isLoading = useAppSelector(selectIsLoading);
+  const { t, getDayShort } = useTranslation();
 
   // Проверяем, является ли день выбранным
   const isSelected = (date) => {
@@ -202,25 +205,31 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
     return newItems;
   }, []);
 
-  // Получаем день недели на русском
+  // Получаем день недели с учетом локализации и начала недели
   const getDayName = (date) => {
-    const days = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-    return days[date.getDay()];
+    const weekStart = settings?.weekStart || 1; // По умолчанию понедельник
+    return getDayShort(date.getDay(), weekStart);
   };
 
-  // Получаем название месяца на русском
+  // Получаем название месяца с учетом локализации
   const getMonthName = (date) => {
-    const months = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    const monthKeys = [
+      'month.jan', 'month.feb', 'month.mar', 'month.apr', 'month.may', 'month.jun',
+      'month.jul', 'month.aug', 'month.sep', 'month.oct', 'month.nov', 'month.dec'
     ];
-    return months[date.getMonth()];
+    return t(monthKeys[date.getMonth()]);
   };
 
-  // Проверяем, является ли день выходным
+  // Проверяем, является ли день выходным с учетом начала недели
   const isWeekend = (date) => {
     const day = date.getDay();
-    return day === 0 || day === 6; // воскресенье или суббота
+    const weekStart = settings?.weekStart || 1; // По умолчанию понедельник
+    
+    if (weekStart === 1) { // Неделя начинается с понедельника
+      return day === 0 || day === 6; // воскресенье или суббота
+    } else { // Неделя начинается с воскресенья
+      return day === 6 || day === 0; // суббота или воскресенье
+    }
   };
 
   // Проверяем, является ли день сегодняшним
@@ -306,9 +315,9 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
   // Получаем высоту элемента
   const getItemSize = useCallback((index) => {
     const item = items[index];
-    if (!item) return 100; // Высота по умолчанию
-    return item.type === 'month' ? 50 : 100;
-  }, [items]);
+    if (!item) return isEmbedded ? 50 : 100; // Высота по умолчанию
+    return item.type === 'month' ? (isEmbedded ? 30 : 50) : (isEmbedded ? 50 : 100);
+  }, [items, isEmbedded]);
 
   // Текущий видимый индекс
   const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
@@ -420,6 +429,40 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
     }
   }, [onScrollToDate, scrollToDate]);
 
+  // Скроллим к текущей дате при её изменении
+  useEffect(() => {
+    if (currentDate && items.length > 0 && listRef.current) {
+      const targetIndex = items.findIndex(item => 
+        item && item.type === 'day' && item.date && item.date.toDateString() === currentDate.toDateString()
+      );
+      if (targetIndex !== -1) {
+        listRef.current.scrollToItem(targetIndex, 'center');
+        setCurrentVisibleIndex(targetIndex);
+        console.log('Calendar: Scrolled to current date:', currentDate.toDateString(), 'index:', targetIndex);
+      }
+    }
+  }, [currentDate, items]);
+
+  // Дополнительный скролл к текущей дате после полной загрузки
+  useEffect(() => {
+    if (items.length > 0 && listRef.current && !isLoading) {
+      const targetDate = currentDate || new Date();
+      const targetIndex = items.findIndex(item => 
+        item && item.type === 'day' && item.date && item.date.toDateString() === targetDate.toDateString()
+      );
+      if (targetIndex !== -1) {
+        // Небольшая задержка для стабилизации рендера
+        setTimeout(() => {
+          if (listRef.current) {
+            listRef.current.scrollToItem(targetIndex, 'center');
+            setCurrentVisibleIndex(targetIndex);
+            console.log('Calendar: Additional scroll to target date:', targetDate.toDateString(), 'index:', targetIndex);
+          }
+        }, 100);
+      }
+    }
+  }, [items.length, isLoading, currentDate]);
+
   // Компонент для рендера элемента списка
   const ItemRenderer = useCallback(({ index, style }) => {
     const item = items[index];
@@ -428,7 +471,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
     if (item.type === 'month') {
       return (
         <div style={style}>
-          <MonthHeader>
+          <MonthHeader isEmbedded={isEmbedded}>
             <div className="month-name">
               {getMonthName(item.date)}
             </div>
@@ -475,6 +518,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
                     isSelected={isSelected(item.date)}
                     isFuture={isFuture(item.date)}
                     isPast={isPast(item.date)}
+                    isEmbedded={isEmbedded}
                     onClick={() => handleDayClick(item.date)}
                   >
               <div className="day-number">
@@ -516,7 +560,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
          </div>
       );
     }
-  }, [items, isToday, isWeekend, isSelected, handleDayClick, formatDate, getDayName, getMonthName, onNotePreview]);
+  }, [items, isToday, isWeekend, isSelected, handleDayClick, formatDate, getDayName, getMonthName, onNotePreview, isEmbedded]);
 
   // Инициализация
   useEffect(() => {
@@ -543,31 +587,35 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
         }
       }
       
-      // Скроллим к сегодняшнему дню через небольшую задержку
+      // Скроллим к текущей дате (или сегодняшней, если currentDate не задана) через задержку
       setTimeout(() => {
         if (listRef.current && initialItems && initialItems.length > 0) {
-          const todayDate = new Date();
-          const todayIndex = initialItems.findIndex(item => 
-            item && item.type === 'day' && item.date && item.date.toDateString() === todayDate.toDateString()
+          const targetDate = currentDate || new Date();
+          const targetIndex = initialItems.findIndex(item => 
+            item && item.type === 'day' && item.date && item.date.toDateString() === targetDate.toDateString()
           );
-          if (todayIndex !== -1) {
-            listRef.current.scrollToItem(todayIndex, 'center');
-            setCurrentVisibleIndex(todayIndex);
+          if (targetIndex !== -1) {
+            listRef.current.scrollToItem(targetIndex, 'center');
+            setCurrentVisibleIndex(targetIndex);
+            console.log('Calendar: Scrolled to target date:', targetDate.toDateString(), 'index:', targetIndex);
+          } else {
+            console.log('Calendar: Target date not found in initial items:', targetDate.toDateString());
           }
         }
-      }, 100);
+      }, 300); // Увеличиваем задержку для полного рендера
     };
     
     initializeCalendar();
-  }, [generateItems, settings, dispatch]);
+  }, [generateItems, settings, dispatch, currentDate]);
 
     return (
       <CalendarContainer
+        isEmbedded={isEmbedded}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-      <ScrollButton onClick={handleScrollUp} size="small">
+      <ScrollButton onClick={handleScrollUp} size="small" isEmbedded={isEmbedded}>
         <KeyboardArrowUpIcon />
       </ScrollButton>
       
@@ -584,7 +632,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
           fontSize: '8px',
           zIndex: 1001
         }}>
-          Загрузка заметок...
+          {t('calendar.loading')}
         </Box>
       )}
       
@@ -611,7 +659,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
                 listRef.current = el;
                 ref(el);
               }}
-              height={window.innerHeight - 60} // Высота минус кнопки
+              height={isEmbedded ? (containerHeight ? containerHeight - 80 : 200) : window.innerHeight - 60} // Используем переданную высоту контейнера
               itemCount={items.length}
               itemSize={getItemSize}
               onItemsRendered={({ visibleStartIndex, visibleStopIndex, overscanStartIndex, overscanStopIndex }) => {
@@ -632,7 +680,7 @@ const CalendarPanel = ({ onDateSelect, currentDate, onTodayClick, onScrollToDate
         </InfiniteLoader>
       </Box>
 
-      <ScrollButton onClick={handleScrollDown} size="small">
+      <ScrollButton onClick={handleScrollDown} size="small" isEmbedded={isEmbedded}>
         <KeyboardArrowDownIcon />
       </ScrollButton>
     </CalendarContainer>

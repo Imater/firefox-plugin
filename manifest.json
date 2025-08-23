@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "WebDAV Bookmarks",
+    "name": "Obsidian Daily Bookmarks for Chrome",
     "version": "1.0",
-    "description": "WebDAV Bookmarks Side Panel",
+    "description": "Plugin allows you to display a panel of favorite links and edit them. It also supports daily notes with calendar. Your data is stored only locally and only in your Obsidian",
     "icons": {
         "16": "favorites-icon.png",
         "48": "favorites-icon.png",

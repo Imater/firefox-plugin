@@ -8,6 +8,7 @@ import {
   Snackbar,
   Alert
 } from '@mui/material';
+import { useTranslation } from '../utils/i18n';
 import { 
   Edit as EditIcon, 
   Visibility as ViewIcon, 
@@ -47,6 +48,7 @@ const MarkdownEditor = ({
   onToggleEdit,
   currentPage 
 }) => {
+  const { t } = useTranslation();
   const [editContent, setEditContent] = useState(content);
 
   // Обновляем editContent при изменении content
@@ -62,14 +64,14 @@ const MarkdownEditor = ({
       await onSave(editContent);
       setSnackbar({ 
         open: true, 
-        message: 'Сохранено успешно!', 
+        message: t('msg.saved_success'), 
         severity: 'success' 
       });
       onToggleEdit();
     } catch (error) {
       setSnackbar({ 
         open: true, 
-        message: `Ошибка сохранения: ${error.message}`, 
+        message: `${t('msg.save_error')} ${error.message}`, 
         severity: 'error' 
       });
     } finally {
@@ -90,7 +92,7 @@ const MarkdownEditor = ({
     return (
       <EditorContainer>
         <div className="editor-toolbar">
-          <span>Редактирование</span>
+                      <span>{t('header.edit')}</span>
           <div className="editor-actions">
             <Button
               variant="contained"
@@ -100,7 +102,7 @@ const MarkdownEditor = ({
               disabled={isSaving}
               size="small"
             >
-              {isSaving ? 'Сохранение...' : 'Сохранить'}
+              {isSaving ? t('daily.saving') : t('daily.save')}
             </Button>
             <Button
               variant="outlined"
@@ -109,7 +111,7 @@ const MarkdownEditor = ({
               disabled={isSaving}
               size="small"
             >
-              Отмена
+              {t('daily.cancel')}
             </Button>
           </div>
         </div>

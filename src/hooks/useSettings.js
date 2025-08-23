@@ -12,7 +12,8 @@ export const useSettings = () => {
     lettersOnlyHotkeys: false,
     openInCurrentTab: false,
     singleTabMode: false,
-    showCalendarPanel: true,
+    language: 'en', // По умолчанию английский
+    weekStart: 1, // По умолчанию понедельник (1)
   });
 
   const loadSettings = async () => {
@@ -27,7 +28,8 @@ export const useSettings = () => {
       'lettersOnlyHotkeys',
       'openInCurrentTab',
       'singleTabMode',
-      'showCalendarPanel',
+      'language',
+      'weekStart',
       'lastOpenedPage'
     ]);
     setSettings({
@@ -41,7 +43,8 @@ export const useSettings = () => {
       lettersOnlyHotkeys: result.lettersOnlyHotkeys === true, // По умолчанию false
       openInCurrentTab: result.openInCurrentTab === true, // По умолчанию false
       singleTabMode: result.singleTabMode === true, // По умолчанию false
-      showCalendarPanel: result.showCalendarPanel !== false, // По умолчанию true
+      language: result.language || 'en', // По умолчанию английский
+      weekStart: result.weekStart || 1, // По умолчанию понедельник (1)
     });
   };
 
@@ -57,7 +60,8 @@ export const useSettings = () => {
       lettersOnlyHotkeys: settings.lettersOnlyHotkeys,
       openInCurrentTab: settings.openInCurrentTab,
       singleTabMode: settings.singleTabMode,
-      showCalendarPanel: settings.showCalendarPanel,
+      language: settings.language,
+      weekStart: settings.weekStart,
     });
     goHome();
   };

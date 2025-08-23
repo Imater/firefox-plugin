@@ -20,12 +20,15 @@ import {
   ViewDay as DailyIcon,
   Edit as EditIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  CalendarMonth as CalendarIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
 import { renderMarkdown } from '../utils/markdownRenderer';
+import CalendarPanel from './CalendarPanel';
+import { useTranslation } from '../utils/i18n';
 
-const PanelContainer = styled(Box)(({ theme, height, isOpen, isResizing }) => ({
+const PanelContainer = styled(Box)(({ theme, height, isOpen, isResizing, showCalendar }) => ({
   position: 'relative', // Добавляем для работы ResizeHandle
   height: isOpen ? (height || '300px') : '0px',
   backgroundColor: theme.palette.background.default,
@@ -33,9 +36,30 @@ const PanelContainer = styled(Box)(({ theme, height, isOpen, isResizing }) => ({
   transition: isResizing ? 'none' : 'height 0.3s ease', // Отключаем transition при изменении размера
   zIndex: 999,
   display: 'flex',
-  flexDirection: 'column',
+  flexDirection: 'row', // Изменяем на row для размещения календаря справа
   overflow: 'hidden',
   boxShadow: isOpen ? '0 -4px 12px rgba(0,0,0,0.15)' : 'none',
+}));
+
+const MainContent = styled(Box)(({ theme, showCalendar }) => ({
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  marginRight: showCalendar ? '60px' : '0px', // Отступ для календарной панели (уменьшен)
+  transition: 'margin-right 0.3s ease',
+}));
+
+const CalendarWrapper = styled(Box)(({ theme, showCalendar }) => ({
+  position: 'absolute',
+  right: 0,
+  top: 0, // Начинается сверху
+  width: '60px', // Уменьшенная ширина
+  height: '100%', // Полная высота
+  backgroundColor: theme.palette.background.paper,
+  borderLeft: `1px solid ${theme.palette.divider}`,
+  transform: showCalendar ? 'translateX(0)' : 'translateX(100%)',
+  transition: 'transform 0.3s ease',
+  zIndex: 500, // Меньше чем у тулбара, чтобы тулбар был поверх
 }));
 
 const Toolbar = styled(Box)(({ theme }) => ({
@@ -46,6 +70,8 @@ const Toolbar = styled(Box)(({ theme }) => ({
   backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
   borderBottom: `1px solid ${theme.palette.divider}`,
   minHeight: '15px',
+  position: 'relative',
+  zIndex: 1000, // Поверх календаря
   '& .toolbar-left': {
     display: 'flex',
     alignItems: 'center',
@@ -224,8 +250,13 @@ const DailyNotesPanel = ({
   onTodayClick = null,
   onScrollToDate = null,
   notePreview = '',
-  pomodoroTimer = null
+  pomodoroTimer = null,
+  settings = null,
+  onDateSelect = null,
+  selectedDate = null,
+  onCalendarNotePreview = null
 }) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(content);
   const [isSaving, setIsSaving] = useState(false);
@@ -235,6 +266,41 @@ const DailyNotesPanel = ({
   const [startHeight, setStartHeight] = useState(0);
   const [previewContent, setPreviewContent] = useState('');
   const [activePomodoroTask, setActivePomodoroTask] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  
+  // Загружаем состояние календаря из хранилища при инициализации
+  useEffect(() => {
+    const loadCalendarState = async () => {
+      try {
+        const result = await chrome.storage.local.get(['dailyNotesCalendarOpen']);
+        if (result.dailyNotesCalendarOpen !== undefined) {
+          setShowCalendar(result.dailyNotesCalendarOpen);
+        }
+      } catch (error) {
+        console.error('Error loading calendar state:', error);
+      }
+    };
+    
+    loadCalendarState();
+  }, []);
+  
+  // Сохраняем состояние календаря в хранилище
+  const saveCalendarState = async (isOpen) => {
+    try {
+      await chrome.storage.local.set({ dailyNotesCalendarOpen: isOpen });
+    } catch (error) {
+      console.error('Error saving calendar state:', error);
+    }
+  };
+  
+  // Скрываем календарь, когда панель закрыта
+  useEffect(() => {
+    if (!isOpen) {
+      setShowCalendar(false);
+    }
+  }, [isOpen]);
+  const [scrollToTodayFunction, setScrollToTodayFunction] = useState(null);
+  const [scrollToDateFunction, setScrollToDateFunction] = useState(null);
   
   const panelRef = useRef(null);
   const dispatch = useAppDispatch();
@@ -327,7 +393,7 @@ const DailyNotesPanel = ({
 
   // Получение названия типа заметки
   const getNoteTypeName = (type) => {
-    return 'Ежедневные';
+    return t('daily.notes');
   };
 
   // Обработка сохранения
@@ -341,14 +407,14 @@ const DailyNotesPanel = ({
       
       setSnackbar({ 
         open: true, 
-        message: 'Сохранено успешно!', 
+        message: t('msg.saved_success'), 
         severity: 'success' 
       });
       setIsEditing(false);
     } catch (error) {
       setSnackbar({ 
         open: true, 
-        message: `Ошибка сохранения: ${error.message}`, 
+        message: `${t('msg.save_error')} ${error.message}`, 
         severity: 'error' 
       });
     } finally {
@@ -412,197 +478,213 @@ const DailyNotesPanel = ({
   if (!isOpen) return null;
 
   return (
-    <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing}>
+    <PanelContainer ref={panelRef} height={height} isOpen={isOpen} isResizing={isResizing} showCalendar={showCalendar}>
       <ResizeHandle onMouseDown={handleMouseDown}>
         <DragIcon className="drag-icon" />
       </ResizeHandle>
       
-      <Toolbar>
-        <div className="toolbar-left">
-          {!isEditing && (
-            <>
-              <Tooltip title="Вчера">
+      <MainContent showCalendar={showCalendar}>
+        <Toolbar>
+          <div className="toolbar-left">
+            {!isEditing && (
+              <>
+                <Tooltip title={t('daily.yesterday')}>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleDateChange('yesterday')}
+                    sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                  >
+                    <YesterdayIcon sx={{ fontSize: '16px' }} />
+                  </IconButton>
+                </Tooltip>
+                
+                <Tooltip title={t('daily.today')}>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleDateChange('today')}
+                    color="primary"
+                    sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                  >
+                    <TodayIcon sx={{ fontSize: '16px' }} />
+                  </IconButton>
+                </Tooltip>
+                
+                <Tooltip title={t('daily.tomorrow')}>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => handleDateChange('tomorrow')}
+                    sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                  >
+                    <TomorrowIcon sx={{ fontSize: '16px' }} />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
+          </div>
+          
+          <div className="toolbar-center">
+            <Box sx={{ display: 'flex', gap: '4px' }}>
+              <Tooltip title={t('daily.notes')}>
                 <IconButton 
                   size="small" 
-                  onClick={() => handleDateChange('yesterday')}
-                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
-                >
-                  <YesterdayIcon sx={{ fontSize: '16px' }} />
-                </IconButton>
-              </Tooltip>
-              
-              <Tooltip title="Сегодня">
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleDateChange('today')}
                   color="primary"
                   sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
                 >
-                  <TodayIcon sx={{ fontSize: '16px' }} />
+                  <DailyIcon sx={{ fontSize: '16px' }} />
                 </IconButton>
               </Tooltip>
               
-              <Tooltip title="Завтра">
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleDateChange('tomorrow')}
-                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
-                >
-                  <TomorrowIcon sx={{ fontSize: '16px' }} />
-                </IconButton>
-              </Tooltip>
-            </>
-          )}
-        </div>
-        
-        <div className="toolbar-center">
-          <Box sx={{ display: 'flex', gap: '4px' }}>
-            <Tooltip title="Ежедневные заметки">
+                          <Tooltip title={showCalendar ? t('daily.hide_calendar') : t('daily.show_calendar')}>
               <IconButton 
                 size="small" 
-                color="primary"
+                color={showCalendar ? "primary" : "default"}
+                onClick={() => {
+                  const newState = !showCalendar;
+                  setShowCalendar(newState);
+                  saveCalendarState(newState);
+                }}
                 sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
               >
-                <DailyIcon sx={{ fontSize: '16px' }} />
+                <CalendarIcon sx={{ fontSize: '16px' }} />
               </IconButton>
             </Tooltip>
-          </Box>
-        </div>
+            </Box>
+          </div>
+          
+          <div className="toolbar-right">
+            {!isEditing && (
+              <Typography className="date-display">
+                {formatDate(currentDate)}
+              </Typography>
+            )}
+            
+            {isEditing && (
+              <div className="editor-actions">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  size="small"
+                  sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
+                >
+                  {isSaving ? t('daily.saving') : t('daily.save')}
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<CancelIcon />}
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  size="small"
+                  sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
+                >
+                  {t('daily.cancel')}
+                </Button>
+              </div>
+            )}
+            
+            {!isEditing && (
+              <Tooltip title={t('daily.edit')}>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setIsEditing(true)}
+                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                >
+                  <EditIcon sx={{ fontSize: '16px' }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </div>
+        </Toolbar>
         
-                 <div className="toolbar-right">
-           {!isEditing && (
-             <Typography className="date-display">
-               {formatDate(currentDate)}
-             </Typography>
-           )}
-           
-           {isEditing && (
-             <div className="editor-actions">
-               <Button
-                 variant="contained"
-                 color="primary"
-                 startIcon={<SaveIcon />}
-                 onClick={handleSave}
-                 disabled={isSaving}
-                 size="small"
-                 sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
-               >
-                 {isSaving ? 'Сохранение...' : 'Сохранить'}
-               </Button>
-               <Button
-                 variant="outlined"
-                 startIcon={<CancelIcon />}
-                 onClick={handleCancel}
-                 disabled={isSaving}
-                 size="small"
-                 sx={{ fontSize: '11px', padding: '2px 8px', minHeight: '24px' }}
-               >
-                 Отмена
-               </Button>
-             </div>
-           )}
-           
-           {!isEditing && (
-             <Tooltip title="Редактировать">
-               <IconButton 
-                 size="small" 
-                 onClick={() => setIsEditing(true)}
-                 sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
-               >
-                 <EditIcon sx={{ fontSize: '16px' }} />
-               </IconButton>
-             </Tooltip>
-           )}
-         </div>
-      </Toolbar>
-      
-      <ContentContainer>
-        {isEditing ? (
-          <TextField
-            multiline
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            variant="outlined"
-            placeholder="Начните писать вашу ежедневную заметку..."
-            sx={{
-              '& .MuiInputBase-root': {
-                fontSize: '10px',
-              }
-            }}
-          />
-        ) : (
-          <div 
-            className="markdown-content"
-            dangerouslySetInnerHTML={renderMarkdown(
-              previewContent || content, 
-              !isEditing && showHotkeys, 
-              0, 
-              lettersOnlyHotkeys, 
-              currentHotkeyBuffer, 
-              openTabs,
-              true
-            )} // DailyNotes - isDailyNotes = true
-            onClick={(e) => {
-              if (e.target.classList.contains('wiki-link')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const pageName = e.target.getAttribute('data-page');
-                if (pageName) {
-                  console.log('DailyNotes: Wiki link clicked:', pageName);
-                  // Нужно передать обработчик из App.jsx
-                  if (window.handleWikiLinkClick) {
-                    window.handleWikiLinkClick(pageName);
-                  }
+        <ContentContainer>
+          {isEditing ? (
+            <TextField
+              multiline
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              variant="outlined"
+              placeholder={t('daily.placeholder')}
+              sx={{
+                '& .MuiInputBase-root': {
+                  fontSize: '10px',
                 }
-              } else if (e.target.classList.contains('external-link')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const url = e.target.getAttribute('data-url');
-                if (url) {
-                  console.log('DailyNotes: External link clicked:', url);
-                  // Нужно передать обработчик из App.jsx
-                  if (window.handleExternalLinkClick) {
-                    window.handleExternalLinkClick(url);
+              }}
+            />
+          ) : (
+            <div 
+              className="markdown-content"
+              dangerouslySetInnerHTML={renderMarkdown(
+                previewContent || content, 
+                !isEditing && showHotkeys, 
+                0, 
+                lettersOnlyHotkeys, 
+                currentHotkeyBuffer, 
+                openTabs,
+                true
+              )} // DailyNotes - isDailyNotes = true
+              onClick={(e) => {
+                if (e.target.classList.contains('wiki-link')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const pageName = e.target.getAttribute('data-page');
+                  if (pageName) {
+                    console.log('DailyNotes: Wiki link clicked:', pageName);
+                    // Нужно передать обработчик из App.jsx
+                    if (window.handleWikiLinkClick) {
+                      window.handleWikiLinkClick(pageName);
+                    }
                   }
-                }
-                             } else if (e.target.classList.contains('task-checkbox') || e.target.closest('.task-checkbox')) {
-                 e.preventDefault();
-                 e.stopPropagation();
-                 
-                 const checkboxElement = e.target.classList.contains('task-checkbox') ? e.target : e.target.closest('.task-checkbox');
-                 const isCurrentlyChecked = checkboxElement.getAttribute('data-checked') === 'true';
-                 const taskText = checkboxElement.getAttribute('data-text');
-                 
-                 // Переключаем состояние галочки
-                 const newChecked = !isCurrentlyChecked;
-                 const newSymbol = newChecked ? '☑' : '☐';
-                 
-                 // Обновляем отображение
-                 checkboxElement.setAttribute('data-checked', newChecked.toString());
-                 checkboxElement.className = `task-checkbox ${newChecked ? 'checked' : 'unchecked'}`;
-                 
-                 // Сохраняем горячую клавишу если она есть
-                 const hotkey = checkboxElement.getAttribute('data-hotkey');
-                 const hotkeySymbol = hotkey ? ` <span class="hotkey-symbol">${hotkey.toUpperCase()}</span>` : '';
-                 checkboxElement.innerHTML = `${newSymbol} ${taskText}${hotkeySymbol}`;
-                 
-                 // Обновляем контент и сохраняем
-                 const currentContent = previewContent || content;
-                 const checkboxPattern = new RegExp(`^- \\[${isCurrentlyChecked ? '[xX]' : ' '}\\] (.+)$`, 'gm');
-                 const replacement = `- [${newChecked ? 'x' : ' '}] $1`;
-                 const newContent = currentContent.replace(checkboxPattern, (match, text) => {
-                   if (text === taskText) {
-                     return replacement.replace('$1', text);
-                   }
-                   return match;
-                 });
-                 
-                 // Сохраняем изменения
-                 onSave(newContent);
-                 
-                 // Обновляем заметку в Redux store
-                 dispatch(updateNote({ date: currentDate, content: newContent }));
-                               } else if (e.target.classList.contains('pomodoro-play')) {
+                } else if (e.target.classList.contains('external-link')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const url = e.target.getAttribute('data-url');
+                  if (url) {
+                    console.log('DailyNotes: External link clicked:', url);
+                    // Нужно передать обработчик из App.jsx
+                    if (window.handleExternalLinkClick) {
+                      window.handleExternalLinkClick(url);
+                    }
+                  }
+                } else if (e.target.classList.contains('task-checkbox') || e.target.closest('.task-checkbox')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const checkboxElement = e.target.classList.contains('task-checkbox') ? e.target : e.target.closest('.task-checkbox');
+                  const isCurrentlyChecked = checkboxElement.getAttribute('data-checked') === 'true';
+                  const taskText = checkboxElement.getAttribute('data-text');
+                  
+                  // Переключаем состояние галочки
+                  const newChecked = !isCurrentlyChecked;
+                  const newSymbol = newChecked ? '☑' : '☐';
+                  
+                  // Обновляем отображение
+                  checkboxElement.setAttribute('data-checked', newChecked.toString());
+                  checkboxElement.className = `task-checkbox ${newChecked ? 'checked' : 'unchecked'}`;
+                  
+                  // Сохраняем горячую клавишу если она есть
+                  const hotkey = checkboxElement.getAttribute('data-hotkey');
+                  const hotkeySymbol = hotkey ? ` <span class="hotkey-symbol">${hotkey.toUpperCase()}</span>` : '';
+                  checkboxElement.innerHTML = `${newSymbol} ${taskText}${hotkeySymbol}`;
+                  
+                  // Обновляем контент и сохраняем
+                  const currentContent = previewContent || content;
+                  const checkboxPattern = new RegExp(`^- \\[${isCurrentlyChecked ? '[xX]' : ' '}\\] (.+)$`, 'gm');
+                  const replacement = `- [${newChecked ? 'x' : ' '}] $1`;
+                  const newContent = currentContent.replace(checkboxPattern, (match, text) => {
+                    if (text === taskText) {
+                      return replacement.replace('$1', text);
+                    }
+                    return match;
+                  });
+                  
+                  // Сохраняем изменения
+                  onSave(newContent);
+                  
+                  // Обновляем заметку в Redux store
+                  dispatch(updateNote({ date: currentDate, content: newContent }));
+                } else if (e.target.classList.contains('pomodoro-play')) {
                   e.preventDefault();
                   e.stopPropagation();
                   
@@ -617,7 +699,7 @@ const DailyNotesPanel = ({
                   // Скрываем кнопку play
                   e.target.style.display = 'none';
                  
-                               } else if (e.target.classList.contains('pomodoro-pause')) {
+                } else if (e.target.classList.contains('pomodoro-pause')) {
                   e.preventDefault();
                   e.stopPropagation();
                   
@@ -654,35 +736,52 @@ const DailyNotesPanel = ({
                   onSave(newContent);
                   dispatch(updateNote({ date: currentDate, content: newContent }));
                 }
-            }}
-            onMouseOver={(e) => {
-              if (e.target.classList.contains('wiki-link')) {
-                const pageName = e.target.getAttribute('data-page');
-                if (pageName) {
-                  // Уведомляем родительский компонент о наведении на ссылку
-                  if (onLinkHover) {
-                    onLinkHover(`[[${pageName}]]`);
+              }}
+              onMouseOver={(e) => {
+                if (e.target.classList.contains('wiki-link')) {
+                  const pageName = e.target.getAttribute('data-page');
+                  if (pageName) {
+                    // Уведомляем родительский компонент о наведении на ссылку
+                    if (onLinkHover) {
+                      onLinkHover(`[[${pageName}]]`);
+                    }
+                  }
+                } else if (e.target.classList.contains('external-link')) {
+                  const url = e.target.getAttribute('data-url');
+                  if (url) {
+                    if (onLinkHover) {
+                      onLinkHover(url);
+                    }
                   }
                 }
-              } else if (e.target.classList.contains('external-link')) {
-                const url = e.target.getAttribute('data-url');
-                if (url) {
+              }}
+              onMouseOut={(e) => {
+                if (e.target.classList.contains('wiki-link') || e.target.classList.contains('external-link')) {
                   if (onLinkHover) {
-                    onLinkHover(url);
+                    onLinkHover('');
                   }
                 }
-              }
-            }}
-            onMouseOut={(e) => {
-              if (e.target.classList.contains('wiki-link') || e.target.classList.contains('external-link')) {
-                if (onLinkHover) {
-                  onLinkHover('');
-                }
-              }
-            }}
+              }}
+            />
+          )}
+        </ContentContainer>
+      </MainContent>
+      
+      {/* Календарная панель */}
+      <CalendarWrapper showCalendar={showCalendar}>
+        {showCalendar && settings && (
+          <CalendarPanel
+            onDateSelect={onDateSelect}
+            currentDate={currentDate} // Используем currentDate из DailyNotesPanel
+            onTodayClick={setScrollToTodayFunction}
+            onScrollToDate={setScrollToDateFunction}
+            settings={settings}
+            onNotePreview={onCalendarNotePreview}
+            isEmbedded={true}
+            containerHeight={height || 300} // Передаем высоту панели
           />
-                )}
-      </ContentContainer>
+        )}
+      </CalendarWrapper>
       
       <Snackbar
         open={snackbar.open}
@@ -697,9 +796,9 @@ const DailyNotesPanel = ({
         >
           {snackbar.message}
         </Alert>
-             </Snackbar>
-     </PanelContainer>
-   );
+      </Snackbar>
+    </PanelContainer>
+  );
 };
 
 export default DailyNotesPanel;

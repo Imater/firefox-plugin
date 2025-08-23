@@ -1,6 +1,8 @@
+import { t } from './i18n';
+
 export const getBreadcrumbs = (currentPage) => {
   if (currentPage === 'index.md') {
-    return [{ name: 'Главная', path: 'index.md' }];
+    return [{ name: t('nav.home'), path: 'index.md' }];
   }
 
   // Убираем .md и декодируем имя файла
@@ -9,7 +11,7 @@ export const getBreadcrumbs = (currentPage) => {
   // Разбиваем путь по разделителям (/, \, -)
   const pathParts = pageName.split(/[\/\\-]/).filter(part => part.trim() !== '');
   
-  const breadcrumbs = [{ name: 'Главная', path: 'index.md' }];
+  const breadcrumbs = [{ name: t('nav.home'), path: 'index.md' }];
   
   let currentPath = '';
   pathParts.forEach((part, index) => {
