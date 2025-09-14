@@ -103,6 +103,46 @@ const ContentBox = styled(Box)(({ theme, hasFooter, dailyNotesPanelOpen, dailyNo
   '& .task-checkbox.unchecked': {
     color: theme.palette.text.primary,
   },
+  '& .collapsible-block': {
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: '4px',
+    margin: '8px 0',
+    overflow: 'hidden',
+  },
+  '& .collapsible-block-header': {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 12px',
+    backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+    cursor: 'pointer',
+    userSelect: 'none',
+    borderBottom: `1px solid ${theme.palette.divider}`,
+    '&:hover': {
+      backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[200],
+    },
+  },
+  '& .block-toggle': {
+    marginRight: '8px',
+    fontSize: '12px',
+    color: theme.palette.text.secondary,
+    transition: 'transform 0.2s ease',
+    '&.collapsed': {
+      transform: 'rotate(-90deg)',
+    },
+  },
+  '& .block-type': {
+    fontWeight: 'bold',
+    color: theme.palette.text.primary,
+  },
+  '& .collapsible-block-content': {
+    padding: '12px',
+    '&.collapsed': {
+      display: 'none',
+    },
+  },
+  '& .collapsible-block-content:not(.collapsed)': {
+    display: 'block',
+  },
 }));
 
 export default ContentBox;

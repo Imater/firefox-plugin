@@ -32,6 +32,28 @@ const isUrlOpenInTab = (url, openTabs) => {
   });
 };
 
+// Функция для обработки сворачиваемых блоков
+const processCollapsibleBlocks = (html) => {
+  // Ищем блоки с комментариями collapsible-block-header
+  return html.replace(
+    /<blockquote>\s*<p>\[!([^\]]+)\]-\s*<!-- collapsible-block-header:([^:]+):([^:]+) -->(.*?)<\/p>\s*((?:<p>.*?<\/p>\s*)*)<\/blockquote>/gs,
+    (match, blockType, type, blockId, firstLineContent, restContent) => {
+      // Объединяем содержимое первой строки и остальных строк, убираем лишний <br>
+      const cleanFirstLine = firstLineContent.replace(/^<br>/, '');
+      const fullContent = cleanFirstLine + restContent;
+      return `<div class="collapsible-block" data-block-id="${blockId}" data-block-type="${blockType}">
+        <div class="collapsible-block-header" data-block-type="${blockType}" data-block-id="${blockId}">
+          <span class="block-toggle collapsed">▼</span>
+          <span class="block-type">${blockType}</span>
+        </div>
+        <div class="collapsible-block-content collapsed">
+          ${fullContent}
+        </div>
+      </div>`;
+    }
+  );
+};
+
 
 export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, lettersOnly = false, currentBuffer = '', openTabs = [], isDailyNotes = false) => {
   // Сбрасываем использованные клавиши в начале каждой генерации
@@ -49,8 +71,17 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
     (match, p1) => `<a href="#" class="wiki-link" data-page="${p1}">${p1}</a>`
   );
 
+  // Process collapsible blockquotes (e.g., > [!NOTE]-, > [!Это ссылки личные]-)
+  const withCollapsibleBlockquotes = withWikiLinks.replace(
+    /^> \[!([^\]]+)\]-\s*$/gm,
+    (match, blockType) => {
+      const blockId = `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return `> [!${blockType}]- <!-- collapsible-block-header:${blockType}:${blockId} -->`;
+    }
+  );
+
   // Process checkboxes
-  const withCheckboxes = withWikiLinks.replace(
+  const withCheckboxes = withCollapsibleBlockquotes.replace(
     /^- \[([ xX])\] (.+)$/gm,
     (match, checked, text) => {
       const isChecked = checked.toLowerCase() === 'x';
@@ -62,6 +93,19 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
     }
   );
 
+  // Process collapsible callout blocks
+  const withCollapsibleCallouts = withCheckboxes.replace(
+    /^> \[!([A-Z]+)\]-\s*$/gm,
+    (match, calloutType) => {
+      const blockId = `callout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return `<div class="collapsible-callout-header" data-callout-type="${calloutType}" data-callout-id="${blockId}">
+        <span class="callout-toggle">▼</span>
+        <span class="callout-type">${calloutType}</span>
+      </div>
+      <div class="collapsible-callout-content" data-callout-id="${blockId}">`;
+    }
+  );
+
   // Настраиваем marked для правильной обработки переносов строк
   marked.setOptions({
     breaks: true, // Преобразует \n в <br>
@@ -70,6 +114,9 @@ export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, let
   });
 
   let processedContent = marked.parse(withCheckboxes);
+
+  // Обрабатываем сворачиваемые блоки
+  processedContent = processCollapsibleBlocks(processedContent);
 
   // Добавляем горячие клавиши если включены
   if (showHotkeys) {

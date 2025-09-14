@@ -170,6 +170,46 @@ const ContentContainer = styled(Box)(({ theme }) => ({
       backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
       color: theme.palette.text.secondary,
     },
+    '& .collapsible-block': {
+      border: `1px solid ${theme.palette.divider}`,
+      borderRadius: '4px',
+      margin: '8px 0',
+      overflow: 'hidden',
+    },
+    '& .collapsible-block-header': {
+      display: 'flex',
+      alignItems: 'center',
+      padding: '8px 12px',
+      backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+      cursor: 'pointer',
+      userSelect: 'none',
+      borderBottom: `1px solid ${theme.palette.divider}`,
+      '&:hover': {
+        backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[700] : theme.palette.grey[200],
+      },
+    },
+    '& .block-toggle': {
+      marginRight: '8px',
+      fontSize: '12px',
+      color: theme.palette.text.secondary,
+      transition: 'transform 0.2s ease',
+      '&.collapsed': {
+        transform: 'rotate(-90deg)',
+      },
+    },
+    '& .block-type': {
+      fontWeight: 'bold',
+      color: theme.palette.text.primary,
+    },
+    '& .collapsible-block-content': {
+      padding: '12px',
+      '&.collapsed': {
+        display: 'none',
+      },
+    },
+    '& .collapsible-block-content:not(.collapsed)': {
+      display: 'block',
+    },
   },
   '& .hotkey-symbol': {
     color: '#000000',
@@ -456,6 +496,38 @@ const DailyNotesPanel = ({
     document.body.style.cursor = 'ns-resize';
   };
 
+  // Восстанавливаем состояние сворачиваемых блоков при загрузке
+  useEffect(() => {
+    const restoreBlockStates = () => {
+      const blocks = document.querySelectorAll('.collapsible-block');
+      blocks.forEach(block => {
+        const blockType = block.getAttribute('data-block-type');
+        const blockId = block.getAttribute('data-block-id');
+        const content = block.querySelector('.collapsible-block-content');
+        const toggle = block.querySelector('.block-toggle');
+        
+        if (blockType && blockId && content && toggle) {
+          const savedState = localStorage.getItem(`collapsible-block-${blockType}-${blockId}`);
+          const isCollapsed = savedState === 'true';
+          
+          if (isCollapsed) {
+            content.classList.add('collapsed');
+            toggle.classList.add('collapsed');
+          } else if (savedState === 'false') {
+            // Если явно сохранено как развернутое, убираем collapsed
+            content.classList.remove('collapsed');
+            toggle.classList.remove('collapsed');
+          }
+          // Если нет сохраненного состояния, оставляем как есть (по умолчанию свернуто)
+        }
+      });
+    };
+
+    // Восстанавливаем состояние после рендеринга
+    const timer = setTimeout(restoreBlockStates, 100);
+    return () => clearTimeout(timer);
+  }, [content, currentDate]);
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizing) return;
@@ -654,6 +726,32 @@ const DailyNotesPanel = ({
                 true
               )} // DailyNotes - isDailyNotes = true
               onClick={(e) => {
+                // Обработка сворачиваемых блоков
+                if (e.target.closest('.collapsible-block-header')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const header = e.target.closest('.collapsible-block-header');
+                  const blockType = header.getAttribute('data-block-type');
+                  const blockId = header.getAttribute('data-block-id');
+                  const block = header.closest('.collapsible-block');
+                  const content = block.querySelector('.collapsible-block-content');
+                  const toggle = header.querySelector('.block-toggle');
+                  
+                  if (block && content && toggle) {
+                    const isCollapsed = content.classList.contains('collapsed');
+                    if (isCollapsed) {
+                      content.classList.remove('collapsed');
+                      toggle.classList.remove('collapsed');
+                      localStorage.setItem(`collapsible-block-${blockType}-${blockId}`, 'false');
+                    } else {
+                      content.classList.add('collapsed');
+                      toggle.classList.add('collapsed');
+                      localStorage.setItem(`collapsible-block-${blockType}-${blockId}`, 'true');
+                    }
+                  }
+                  return;
+                }
+                
                 if (e.target.classList.contains('wiki-link')) {
                   e.preventDefault();
                   e.stopPropagation();

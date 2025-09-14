@@ -581,6 +581,21 @@ function App() {
     setCurrentPage(encodeURIComponent(pageName) + '.md');
   };
 
+  // Функция для работы с состоянием сворачиваемых блоков
+  const getBlockStateKey = (blockType, blockId) => {
+    return `collapsible-block-${blockType}-${blockId}`;
+  };
+
+  const isBlockCollapsed = (blockType, blockId) => {
+    const key = getBlockStateKey(blockType, blockId);
+    return localStorage.getItem(key) === 'true';
+  };
+
+  const toggleBlockState = (blockType, blockId, isCollapsed) => {
+    const key = getBlockStateKey(blockType, blockId);
+    localStorage.setItem(key, isCollapsed.toString());
+  };
+
   const handleBreadcrumbClick = (path) => {
     setCurrentPage(path);
   };
@@ -615,6 +630,38 @@ function App() {
       }
     }
   };
+
+  // Восстанавливаем состояние сворачиваемых блоков при загрузке
+  useEffect(() => {
+    const restoreBlockStates = () => {
+      const blocks = document.querySelectorAll('.collapsible-block');
+      blocks.forEach(block => {
+        const blockType = block.getAttribute('data-block-type');
+        const blockId = block.getAttribute('data-block-id');
+        const content = block.querySelector('.collapsible-block-content');
+        const toggle = block.querySelector('.block-toggle');
+        
+        if (blockType && blockId && content && toggle) {
+          const savedState = localStorage.getItem(`collapsible-block-${blockType}-${blockId}`);
+          const isCollapsed = savedState === 'true';
+          
+          if (isCollapsed) {
+            content.classList.add('collapsed');
+            toggle.classList.add('collapsed');
+          } else if (savedState === 'false') {
+            // Если явно сохранено как развернутое, убираем collapsed
+            content.classList.remove('collapsed');
+            toggle.classList.remove('collapsed');
+          }
+          // Если нет сохраненного состояния, оставляем как есть (по умолчанию свернуто)
+        }
+      });
+    };
+
+    // Восстанавливаем состояние после рендеринга
+    const timer = setTimeout(restoreBlockStates, 100);
+    return () => clearTimeout(timer);
+  }, [content, currentPage]);
 
   // Добавляем функции в глобальный объект для доступа из DailyNotesPanel
   useEffect(() => {
@@ -738,6 +785,32 @@ function App() {
                              key={`content-${content.length}-${content.substring(0, 50)}`} // Простой ключ без Date.now()
                              dangerouslySetInnerHTML={renderMarkdown(content, !isEditing && !isDailyNotesEditing && settings.enableHotkeys, 0, settings.lettersOnlyHotkeys, currentHotkeyBuffer, openTabs, false)} // Основной редактор - не daily notes
               onClick={(e) => {
+                // Обработка сворачиваемых блоков
+                if (e.target.closest('.collapsible-block-header')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const header = e.target.closest('.collapsible-block-header');
+                  const blockType = header.getAttribute('data-block-type');
+                  const blockId = header.getAttribute('data-block-id');
+                  const block = header.closest('.collapsible-block');
+                  const content = block.querySelector('.collapsible-block-content');
+                  const toggle = header.querySelector('.block-toggle');
+                  
+                  if (block && content && toggle) {
+                    const isCollapsed = content.classList.contains('collapsed');
+                    if (isCollapsed) {
+                      content.classList.remove('collapsed');
+                      toggle.classList.remove('collapsed');
+                      toggleBlockState(blockType, blockId, false);
+                    } else {
+                      content.classList.add('collapsed');
+                      toggle.classList.add('collapsed');
+                      toggleBlockState(blockType, blockId, true);
+                    }
+                  }
+                  return;
+                }
+                
                 if (e.target.classList.contains('wiki-link')) {
                   e.preventDefault();
                   e.stopPropagation();
