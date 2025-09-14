@@ -212,7 +212,7 @@ const ContentContainer = styled(Box)(({ theme }) => ({
 
 const ResizeHandle = styled(Box)(({ theme }) => ({
   position: 'absolute',
-  top: 0,
+  top: '-2px', // Размещаем на границе с основной панелью
   left: 0,
   right: 0,
   height: '4px',
@@ -221,12 +221,25 @@ const ResizeHandle = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  zIndex: 1001, // Поверх всех элементов
+  transition: 'all 0.2s ease',
   '&:hover': {
     backgroundColor: theme.palette.primary.dark,
+    height: '6px', // Увеличиваем при наведении для лучшего UX
+    boxShadow: `0 2px 8px ${theme.palette.primary.main}40`,
+  },
+  '&:active': {
+    backgroundColor: theme.palette.primary.dark,
+    height: '6px',
   },
   '& .drag-icon': {
     color: theme.palette.primary.contrastText,
     fontSize: '16px',
+    opacity: 0.8,
+    transition: 'opacity 0.2s ease',
+  },
+  '&:hover .drag-icon': {
+    opacity: 1,
   },
 }));
 
@@ -433,32 +446,48 @@ const DailyNotesPanel = ({
   // Обработка изменения размера панели
   const handleMouseDown = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsResizing(true);
     setStartY(e.clientY);
     setStartHeight(height);
+    
+    // Добавляем класс для предотвращения выделения текста
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ns-resize';
   };
 
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizing) return;
       
+      e.preventDefault();
       const deltaY = startY - e.clientY;
       const newHeight = Math.max(200, Math.min(600, startHeight + deltaY));
       onHeightChange(newHeight);
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e) => {
+      if (!isResizing) return;
+      
+      e.preventDefault();
       setIsResizing(false);
+      
+      // Восстанавливаем стили
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
 
     if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { passive: false });
     }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      // Восстанавливаем стили при размонтировании
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
     };
   }, [isResizing, startY, startHeight, onHeightChange]);
 

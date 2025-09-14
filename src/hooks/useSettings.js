@@ -4,7 +4,7 @@ export const useSettings = () => {
   const [settings, setSettings] = useState({
     tabRefreshMinutes: 8 * 60,
     useApi: true,
-    apiKey: 'bf299179ab0731b5fd2351fe4a3362cc43984e360f258133bb5ec406394c594f',
+    apiKey: 'e9b2f7b78c69992b83161f2690e7348523a7f4b96b44db542aa09d8f72c030a0',
     apiUrl: 'http://127.0.0.1:27123/vault/bookmarks',
     periodicApiUrl: 'http://127.0.0.1:27123',
     dailyNotesPanelHeight: 300,
@@ -35,7 +35,7 @@ export const useSettings = () => {
     setSettings({
       tabRefreshMinutes: result.tabRefreshMinutes || 15,
       useApi: result.useApi !== false, // По умолчанию true
-      apiKey: result.apiKey || 'bf299179ab0731b5fd2351fe4a3362cc43984e360f258133bb5ec406394c594f',
+      apiKey: result.apiKey || 'e9b2f7b78c69992b83161f2690e7348523a7f4b96b44db542aa09d8f72c030a0',
       apiUrl: result.apiUrl || 'http://127.0.0.1:27123/vault',
       periodicApiUrl: result.periodicApiUrl || 'http://127.0.0.1:27123',
       dailyNotesPanelHeight: result.dailyNotesPanelHeight || 300,

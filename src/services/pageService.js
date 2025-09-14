@@ -18,7 +18,7 @@ export const loadCurrentPage = async (currentPage) => {
       }
     });
     
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok && response.status !== 204) throw new Error(`HTTP error! status: ${response.status}`);
     
     const data = await response.json();
     
@@ -55,7 +55,7 @@ export const saveCurrentPage = async (currentPage, content) => {
       body: content
     });
     
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
       const errorText = await response.text();
       throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
     }

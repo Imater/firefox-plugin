@@ -32,6 +32,7 @@ const isUrlOpenInTab = (url, openTabs) => {
   });
 };
 
+
 export const renderMarkdown = (content, showHotkeys = false, startIndex = 0, lettersOnly = false, currentBuffer = '', openTabs = [], isDailyNotes = false) => {
   // Сбрасываем использованные клавиши в начале каждой генерации
   resetUsedHotkeys();

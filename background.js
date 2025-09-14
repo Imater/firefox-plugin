@@ -256,9 +256,16 @@ async function addBookmarkToNote(title, url, comment = '', destination = 'curren
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
 
-      // Пробуем загрузить текущий контент ежедневной заметки с Periodic API
+      // Используем Vault API для ежедневных заметок (работает для всех дат)
       const periodicApiBase = (current.periodicApiUrl || 'http://127.0.0.1:27123');
-      const dailyUrl = `${periodicApiBase}/periodic/daily/${year}/${month}/${day}/`;
+      
+      // Получаем день недели на русском языке
+      const dayNames = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+      const dayOfWeek = dayNames[today.getDay()];
+      
+      // Используем правильную структуру папок: YYYY/YYYY-MM/YYYY-MM-DD (dd).md
+      const fileName = `${year}-${month}-${day} (${dayOfWeek}).md`;
+      const dailyUrl = `${periodicApiBase}/vault/DailyNotes/${year}/${year}-${month}/${fileName}`;
 
       // Получаем текущее время
       const now = new Date();
@@ -291,7 +298,7 @@ async function addBookmarkToNote(title, url, comment = '', destination = 'curren
             },
             body: bodyToSave
           });
-          if (!createResp.ok) throw new Error(`HTTP ${createResp.status}`);
+          if (!createResp.ok && createResp.status !== 204) throw new Error(`HTTP ${createResp.status}`);
         } else if (checkResp.ok) {
           const data = await checkResp.json();
           const existing = data?.content || '';
@@ -305,7 +312,7 @@ async function addBookmarkToNote(title, url, comment = '', destination = 'curren
             },
             body: bodyToSave
           });
-          if (!updateResp.ok) throw new Error(`HTTP ${updateResp.status}`);
+          if (!updateResp.ok && updateResp.status !== 204) throw new Error(`HTTP ${updateResp.status}`);
         } else {
           throw new Error(`HTTP ${checkResp.status}`);
         }

@@ -1,6 +1,7 @@
 {
     "name": "obsidian-daily-bookmarks",
     "version": "1.0.0",
+    "type": "module",
     "description": "Plugin allows you to display a panel of favorite links and edit them. It also supports daily notes with calendar. Your data is stored only locally and only in your Obsidian",
     "main": "dist/index.js",
     "scripts": {

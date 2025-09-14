@@ -6,7 +6,7 @@ const getDateComponents = (date) => {
   return { year, month, day };
 };
 
-// Загрузка ежедневной заметки через Periodic Notes API
+// Загрузка ежедневной заметки через Periodic Notes API (Daily Plugin знает правильный путь)
 export const loadDailyNote = async (date) => {
   try {
     const result = await chrome.storage.local.get(['useApi', 'apiKey', 'apiUrl', 'periodicApiUrl']);
@@ -15,7 +15,7 @@ export const loadDailyNote = async (date) => {
       throw new Error('Для работы с ежедневными заметками необходимо включить API режим в настройках');
     }
     
-    // Используем отдельный URL для Periodic Notes API
+    // Используем Periodic Notes API для загрузки - Daily Plugin сам знает правильный путь
     const periodicApiUrl = result.periodicApiUrl || 'http://127.0.0.1:27123';
     const { year, month, day } = getDateComponents(date);
     
@@ -34,7 +34,7 @@ export const loadDailyNote = async (date) => {
       return '';
     }
     
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -54,7 +54,7 @@ export const loadDailyNote = async (date) => {
   }
 };
 
-// Сохранение ежедневной заметки через Periodic Notes API
+// Сохранение ежедневной заметки через Vault API (работает для всех дат)
 export const saveDailyNote = async (date, content) => {
   try {
     const result = await chrome.storage.local.get(['useApi', 'apiKey', 'apiUrl', 'periodicApiUrl']);
@@ -63,23 +63,25 @@ export const saveDailyNote = async (date, content) => {
       throw new Error('Для работы с ежедневными заметками необходимо включить API режим в настройках');
     }
     
-    // Используем отдельный URL для Periodic Notes API
-    const periodicApiUrl = result.periodicApiUrl || 'http://127.0.0.1:27123';
+    // Используем Vault API вместо Periodic Notes API для создания заметок
+    const apiUrl = result.periodicApiUrl || 'http://127.0.0.1:27123';
     const { year, month, day } = getDateComponents(date);
     
-    // Используем специальный эндпоинт для Periodic Notes
-    const url = `${periodicApiUrl}/periodic/daily/${year}/${month}/${day}/`;
+    // Получаем день недели на русском языке
+    const dayNames = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+    const dayOfWeek = dayNames[date.getDay()];
     
-    // Всегда используем PUT, так как POST может не поддерживаться API
-    const method = 'PUT';
+    // Используем правильную структуру папок: YYYY/YYYY-MM/YYYY-MM-DD (dd).md
+    const fileName = `${year}-${month}-${day} (${dayOfWeek}).md`;
+    const url = `${apiUrl}/vault/DailyNotes/${year}/${year}-${month}/${fileName}`;
     
     // Создаем контроллер для таймаута
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 секунд таймаут
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд таймаут
     
     try {
       const response = await fetch(url, {
-        method: method,
+        method: 'PUT',
         headers: {
           'accept': '*/*',
           'Content-Type': 'text/markdown',
@@ -91,7 +93,7 @@ export const saveDailyNote = async (date, content) => {
       
       clearTimeout(timeoutId);
       
-      if (!response.ok) {
+      if (!response.ok && response.status !== 204) {
         const errorText = await response.text();
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
@@ -100,7 +102,7 @@ export const saveDailyNote = async (date, content) => {
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error(`Превышено время ожидания ${method} запроса (5 секунд)`);
+        throw new Error(`Превышено время ожидания PUT запроса (10 секунд)`);
       }
       throw fetchError;
     }
@@ -109,7 +111,7 @@ export const saveDailyNote = async (date, content) => {
   }
 };
 
-// Универсальная функция сохранения для всех типов Periodic Notes
+// Универсальная функция сохранения для всех типов Periodic Notes через Vault API
 export const savePeriodicNote = async (date, content, type = 'daily') => {
   try {
     const result = await chrome.storage.local.get(['useApi', 'apiKey', 'apiUrl', 'periodicApiUrl']);
@@ -118,23 +120,41 @@ export const savePeriodicNote = async (date, content, type = 'daily') => {
       throw new Error('Для работы с заметками необходимо включить API режим в настройках');
     }
     
-    // Используем отдельный URL для Periodic Notes API
-    const periodicApiUrl = result.periodicApiUrl || 'http://127.0.0.1:27123';
+    // Используем Vault API для создания заметок
+    const apiUrl = result.periodicApiUrl || 'http://127.0.0.1:27123';
     const { year, month, day } = getDateComponents(date);
     
-    // Используем специальный эндпоинт для Periodic Notes
-    const url = `${periodicApiUrl}/periodic/${type}/${year}/${month}/${day}/`;
+    // Определяем путь в зависимости от типа заметки
+    let filePath;
+    const dayNames = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+    const dayOfWeek = dayNames[date.getDay()];
     
-    // Всегда используем PUT, так как POST может не поддерживаться API
-    const method = 'PUT';
+    switch (type) {
+      case 'daily':
+        filePath = `DailyNotes/${year}/${year}-${month}/${year}-${month}-${day} (${dayOfWeek}).md`;
+        break;
+      case 'weekly':
+        filePath = `WeeklyNotes/${year}/${year}-W${Math.ceil(day / 7)}.md`;
+        break;
+      case 'monthly':
+        filePath = `MonthlyNotes/${year}/${year}-${month}.md`;
+        break;
+      case 'yearly':
+        filePath = `YearlyNotes/${year}.md`;
+        break;
+      default:
+        filePath = `DailyNotes/${year}/${year}-${month}/${year}-${month}-${day} (${dayOfWeek}).md`;
+    }
+    
+    const url = `${apiUrl}/vault/${filePath}`;
     
     // Создаем контроллер для таймаута
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 секунд таймаут
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд таймаут
     
     try {
       const response = await fetch(url, {
-        method: method,
+        method: 'PUT',
         headers: {
           'accept': '*/*',
           'Content-Type': 'text/markdown',
@@ -146,7 +166,7 @@ export const savePeriodicNote = async (date, content, type = 'daily') => {
       
       clearTimeout(timeoutId);
       
-      if (!response.ok) {
+      if (!response.ok && response.status !== 204) {
         const errorText = await response.text();
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
@@ -155,7 +175,7 @@ export const savePeriodicNote = async (date, content, type = 'daily') => {
     } catch (fetchError) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error(`Превышено время ожидания ${method} запроса (5 секунд)`);
+        throw new Error(`Превышено время ожидания PUT запроса (10 секунд)`);
       }
       throw fetchError;
     }
@@ -186,7 +206,7 @@ export const getDailyNotesList = async () => {
       }
     });
     
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -227,7 +247,7 @@ export const loadWeeklyNote = async (date) => {
       return '';
     }
     
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -267,7 +287,7 @@ export const loadMonthlyNote = async (date) => {
       return '';
     }
     
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
@@ -307,7 +327,7 @@ export const loadYearlyNote = async (date) => {
       return '';
     }
     
-    if (!response.ok) {
+    if (!response.ok && response.status !== 204) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     

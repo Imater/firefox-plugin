@@ -41,19 +41,7 @@ export default [
         preferBuiltins: false
       }),
       commonjs({
-        include: /node_modules/,
-        namedExports: {
-          '@mui/material': [
-            'createTheme',
-            'ThemeProvider',
-            'Box',
-            'Button',
-            'TextField',
-            'Typography',
-            'Paper',
-            'styled'
-          ]
-        }
+        include: /node_modules/
       }),
       babel({
         babelHelpers: 'bundled',
