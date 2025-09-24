@@ -21,11 +21,13 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
-  CalendarMonth as CalendarIcon
+  CalendarMonth as CalendarIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
 import { renderMarkdown } from '../utils/markdownRenderer';
 import CalendarPanel from './CalendarPanel';
+import HistoryPanel from './HistoryPanel';
 import { useTranslation } from '../utils/i18n';
 
 const PanelContainer = styled(Box)(({ theme, height, isOpen, isResizing, showCalendar }) => ({
@@ -320,6 +322,7 @@ const DailyNotesPanel = ({
   const [previewContent, setPreviewContent] = useState('');
   const [activePomodoroTask, setActivePomodoroTask] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [activeTab, setActiveTab] = useState('notes'); // 'notes' или 'history'
   
   // Загружаем состояние календаря из хранилища при инициализации
   useEffect(() => {
@@ -587,7 +590,7 @@ const DailyNotesPanel = ({
       <MainContent showCalendar={showCalendar}>
         <Toolbar>
           <div className="toolbar-left">
-            {!isEditing && (
+            {activeTab === 'notes' && !isEditing && (
               <>
                 <Tooltip title={t('daily.yesterday')}>
                   <IconButton 
@@ -625,41 +628,53 @@ const DailyNotesPanel = ({
           
           <div className="toolbar-center">
             <Box sx={{ display: 'flex', gap: '4px' }}>
-              <Tooltip title={t('daily.notes')}>
+              <Tooltip title="Ежедневные заметки">
                 <IconButton 
                   size="small" 
-                  color="primary"
+                  color={activeTab === 'notes' ? "primary" : "default"}
+                  onClick={() => setActiveTab('notes')}
                   sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
                 >
                   <DailyIcon sx={{ fontSize: '16px' }} />
                 </IconButton>
               </Tooltip>
               
-                          <Tooltip title={showCalendar ? t('daily.hide_calendar') : t('daily.show_calendar')}>
-              <IconButton 
-                size="small" 
-                color={showCalendar ? "primary" : "default"}
-                onClick={() => {
-                  const newState = !showCalendar;
-                  setShowCalendar(newState);
-                  saveCalendarState(newState);
-                }}
-                sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
-              >
-                <CalendarIcon sx={{ fontSize: '16px' }} />
-              </IconButton>
-            </Tooltip>
+              <Tooltip title="История посещений">
+                <IconButton 
+                  size="small" 
+                  color={activeTab === 'history' ? "primary" : "default"}
+                  onClick={() => setActiveTab('history')}
+                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                >
+                  <HistoryIcon sx={{ fontSize: '16px' }} />
+                </IconButton>
+              </Tooltip>
+              
+              <Tooltip title={showCalendar ? t('daily.hide_calendar') : t('daily.show_calendar')}>
+                <IconButton 
+                  size="small" 
+                  color={showCalendar ? "primary" : "default"}
+                  onClick={() => {
+                    const newState = !showCalendar;
+                    setShowCalendar(newState);
+                    saveCalendarState(newState);
+                  }}
+                  sx={{ padding: '2px', minWidth: '24px', height: '24px' }}
+                >
+                  <CalendarIcon sx={{ fontSize: '16px' }} />
+                </IconButton>
+              </Tooltip>
             </Box>
           </div>
           
           <div className="toolbar-right">
-            {!isEditing && (
+            {activeTab === 'notes' && !isEditing && (
               <Typography className="date-display">
                 {formatDate(currentDate)}
               </Typography>
             )}
             
-            {isEditing && (
+            {activeTab === 'notes' && isEditing && (
               <div className="editor-actions">
                 <Button
                   variant="contained"
@@ -685,7 +700,7 @@ const DailyNotesPanel = ({
               </div>
             )}
             
-            {!isEditing && (
+            {activeTab === 'notes' && !isEditing && (
               <Tooltip title={t('daily.edit')}>
                 <IconButton 
                   size="small" 
@@ -700,31 +715,32 @@ const DailyNotesPanel = ({
         </Toolbar>
         
         <ContentContainer>
-          {isEditing ? (
-            <TextField
-              multiline
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              variant="outlined"
-              placeholder={t('daily.placeholder')}
-              sx={{
-                '& .MuiInputBase-root': {
-                  fontSize: '10px',
-                }
-              }}
-            />
-          ) : (
-            <div 
-              className="markdown-content"
-              dangerouslySetInnerHTML={renderMarkdown(
-                previewContent || content, 
-                !isEditing && showHotkeys, 
-                0, 
-                lettersOnlyHotkeys, 
-                currentHotkeyBuffer, 
-                openTabs,
-                true
-              )} // DailyNotes - isDailyNotes = true
+          {activeTab === 'notes' ? (
+            isEditing ? (
+              <TextField
+                multiline
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                variant="outlined"
+                placeholder={t('daily.placeholder')}
+                sx={{
+                  '& .MuiInputBase-root': {
+                    fontSize: '10px',
+                  }
+                }}
+              />
+            ) : (
+              <div 
+                className="markdown-content"
+                dangerouslySetInnerHTML={renderMarkdown(
+                  previewContent || content, 
+                  !isEditing && showHotkeys, 
+                  0, 
+                  lettersOnlyHotkeys, 
+                  currentHotkeyBuffer, 
+                  openTabs,
+                  true
+                )} // DailyNotes - isDailyNotes = true
               onClick={(e) => {
                 // Обработка сворачиваемых блоков
                 if (e.target.closest('.collapsible-block-header')) {
@@ -889,6 +905,13 @@ const DailyNotesPanel = ({
                   }
                 }
               }}
+            />
+            )
+          ) : (
+            <HistoryPanel 
+              currentDate={currentDate}
+              onDateChange={onDateChange}
+              isVisible={activeTab === 'history'}
             />
           )}
         </ContentContainer>
