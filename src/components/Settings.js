@@ -142,6 +142,26 @@ const Settings = ({ isDarkMode, saveTheme, settings, setSettings, onSave }) => {
           sx={{ marginBottom: '8px' }}
         />
 
+        <FormControlLabel
+          control={
+            <Switch
+              checked={settings.recordVisitHistory}
+              onChange={async (e) => {
+                const checked = e.target.checked;
+                const newSettings = { ...settings, recordVisitHistory: checked };
+                setSettings(newSettings);
+                await chrome.storage.local.set({ recordVisitHistory: checked });
+              }}
+              color="primary"
+            />
+          }
+          label={t('settings.record_visit_history')}
+          sx={{ marginBottom: '8px' }}
+        />
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ marginBottom: '16px', marginLeft: 0 }}>
+          {t('settings.record_visit_history_help')}
+        </Typography>
+
         <Divider sx={{ marginY: '16px' }} />
         
         <Typography variant="subtitle1" gutterBottom>

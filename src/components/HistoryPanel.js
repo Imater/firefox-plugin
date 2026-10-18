@@ -20,10 +20,11 @@ import {
 } from '@mui/icons-material';
 import { styled } from '@mui/system';
 import { useTranslation } from '../utils/i18n';
-import { 
-  getHistoryFromNote, 
+import {
+  getVisitHistory,
   removeFromHistory,
-  formatTime 
+  formatTime,
+  normalizeUrl,
 } from '../services/historyService';
 
 const PanelContainer = styled(Box)(({ theme }) => ({
@@ -91,23 +92,18 @@ const EmptyState = styled(Box)(({ theme }) => ({
   textAlign: 'center',
 }));
 
-const HistoryPanel = ({ 
-  currentDate, 
-  onDateChange,
-  isVisible = false 
-}) => {
+const HistoryPanel = ({ isVisible = false }) => {
   const { t } = useTranslation();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
 
-  // Загружаем историю при изменении даты или видимости
   useEffect(() => {
     if (isVisible) {
       loadHistory();
     }
-  }, [currentDate, isVisible]);
+  }, [isVisible]);
 
   // Слушаем сообщения от background.js для обновления истории
   useEffect(() => {
@@ -127,8 +123,14 @@ const HistoryPanel = ({
     setError(null);
     
     try {
-      const historyData = await getHistoryFromNote(currentDate);
-      setHistory(historyData);
+      const historyData = await getVisitHistory();
+      setHistory(
+        historyData.map((entry) => ({
+          ...entry,
+          normalizedUrl: normalizeUrl(entry.url),
+          time: formatTime(entry.visitedAt),
+        }))
+      );
       setLastUpdate(new Date());
     } catch (err) {
       console.error('Error loading history:', err);
@@ -153,7 +155,7 @@ const HistoryPanel = ({
 
   const handleDeleteItem = async (item) => {
     try {
-      const success = await removeFromHistory(currentDate, item.url);
+      const success = await removeFromHistory(item.url);
       if (success) {
         // Обновляем локальное состояние
         const updatedHistory = history.filter(h => h.url !== item.url);
@@ -243,21 +245,11 @@ const HistoryPanel = ({
             
             <HistoryList>
               {history
-                .sort((a, b) => {
-                  // Дополнительная сортировка по времени (самые свежие сверху)
-                  const parseTime = (timeStr) => {
-                    const [hours, minutes] = timeStr.split(':').map(Number);
-                    return hours * 60 + minutes;
-                  };
-                  
-                  const timeA = parseTime(a.time);
-                  const timeB = parseTime(b.time);
-                  
-                  return timeB - timeA; // Сортируем по убыванию
-                })
+                .slice()
+                .sort((a, b) => (b.visitedAt || 0) - (a.visitedAt || 0))
                 .map((item, index) => (
                 <HistoryItem 
-                  key={index}
+                  key={`${item.url}-${item.visitedAt}-${index}`}
                   onClick={() => handleItemClick(item)}
                 >
                   <ListItemText

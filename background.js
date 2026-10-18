@@ -1,3 +1,5 @@
+import { appendVisit } from './src/services/visitHistoryStorage.js';
+
 // Создаем контекстное меню при установке расширения
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -243,158 +245,36 @@ function showBookmarkDialog(defaultTitle, url, defaultDestination = 'current') {
   });
 }
 
-// Функция для добавления URL в историю посещений
-async function addToHistory(url, title) {
+async function notifyHistoryUpdated() {
   try {
-    // Проверяем, является ли URL валидным для истории
-    if (!isValidUrlForHistory(url)) {
-      return;
-    }
-
-    // Получаем настройки
-    const result = await chrome.storage.local.get(['useApi', 'apiKey', 'periodicApiUrl']);
-    
-    if (!result.useApi) {
-      return; // Не добавляем в историю если API отключен
-    }
-
-    const today = new Date();
-    const year = String(today.getFullYear());
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-
-    // Используем Vault API для ежедневных заметок
-    const periodicApiBase = (result.periodicApiUrl || 'http://127.0.0.1:27123');
-    
-    // Получаем день недели на русском языке
-    const dayNames = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
-    const dayOfWeek = dayNames[today.getDay()];
-    
-    // Используем правильную структуру папок: YYYY/YYYY-MM/YYYY-MM-DD (dd).md
-    const fileName = `${year}-${month}-${day} (${dayOfWeek}).md`;
-    const dailyUrl = `${periodicApiBase}/vault/DailyNotes/${year}/${year}-${month}/${fileName}`;
-
-    // Нормализуем URL
-    const normalizedUrl = normalizeUrl(url);
-    
-    // Получаем текущее время
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const timeString = `${hours}:${minutes}`;
-    
-    // Создаем новую запись истории в формате markdown ссылки
-    const newHistoryEntry = `- [${normalizedUrl} - ${title} - ${timeString}](${url})`;
-
-    try {
-      // Проверяем существование заметки
-      const checkResp = await fetch(dailyUrl, {
-        headers: {
-          'accept': 'application/vnd.olrapi.note+json',
-          'Authorization': `Bearer ${result.apiKey || ''}`
-        }
-      });
-
-      let bodyToSave = '';
-      let existingContent = '';
-      
-      if (checkResp.status === 404) {
-        // Создаем новую заметку
-        bodyToSave = newHistoryEntry;
-      } else if (checkResp.ok) {
-        const data = await checkResp.json();
-        existingContent = data?.content || '';
-        
-        // Удаляем старую запись с таким же URL (если есть)
-        const lines = existingContent.split('\n');
-        const filteredLines = lines.filter(line => {
-          const historyMatch = line.match(/^- \[(.+) - (.+) - (\d{2}:\d{2})\]\((.+)\)$/);
-          if (historyMatch) {
-            const [, , , , existingFullUrl] = historyMatch;
-            return existingFullUrl.trim() !== url;
-          }
-          return true;
-        });
-        
-        // Добавляем новую запись в начало
-        bodyToSave = [newHistoryEntry, ...filteredLines].join('\n');
-      } else {
-        return; // Не удалось получить заметку
+    const tabs = await chrome.tabs.query({
+      url: chrome.runtime.getURL('sidebar.html')
+    });
+    for (const tab of tabs) {
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'history_updated' });
+      } catch (e) {
+        // ignore
       }
-
-      // Сохраняем обновленную заметку
-      const saveResp = await fetch(dailyUrl, {
-        method: 'PUT',
-        headers: {
-          'accept': '*/*',
-          'Content-Type': 'text/markdown',
-          'Authorization': `Bearer ${result.apiKey || ''}`
-        },
-        body: bodyToSave
-      });
-      
-      if (!saveResp.ok && saveResp.status !== 204) {
-        console.error('Error saving history:', saveResp.status);
-      } else {
-        // Уведомляем панель об обновлении истории
-        try {
-          const tabs = await chrome.tabs.query({
-            url: chrome.runtime.getURL('sidebar.html')
-          });
-          
-          for (const tab of tabs) {
-            try {
-              await chrome.tabs.sendMessage(tab.id, {
-                type: 'history_updated'
-              });
-            } catch (e) {
-              // ignore
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-    } catch (e) {
-      console.error('Error adding to history:', e);
     }
-  } catch (error) {
-    console.error('Error in addToHistory:', error);
+  } catch (e) {
+    // ignore
   }
 }
 
-// Функция для проверки валидности URL для истории
-function isValidUrlForHistory(url) {
-  if (!url) return false;
-  
-  // Исключаем системные URL
-  return !url.startsWith('chrome://') && 
-         !url.startsWith('chrome-extension://') &&
-         !url.startsWith('about:') &&
-         !url.startsWith('moz-extension://') &&
-         !url.startsWith('edge://') &&
-         !url.includes('localhost') &&
-         !url.includes('127.0.0.1') &&
-         (url.startsWith('http://') || url.startsWith('https://'));
-}
-
-// Функция для нормализации URL
-function normalizeUrl(url) {
-  if (!url) return '';
-  
+// Функция для добавления URL в историю посещений (chrome.storage.local)
+async function addToHistory(url, title) {
   try {
-    const urlObj = new URL(url);
-    let normalized = urlObj.hostname + urlObj.pathname;
-    
-    // Убираем trailing slash если это не корневой путь
-    if (normalized.endsWith('/') && normalized !== '/') {
-      normalized = normalized.slice(0, -1);
+    const { recordVisitHistory } = await chrome.storage.local.get('recordVisitHistory');
+    if (recordVisitHistory === false) {
+      return;
     }
-    
-    return normalized;
+    const added = await appendVisit(url, title);
+    if (added) {
+      await notifyHistoryUpdated();
+    }
   } catch (error) {
-    console.error('Error normalizing URL:', error);
-    return url;
+    console.error('Error in addToHistory:', error);
   }
 }
 

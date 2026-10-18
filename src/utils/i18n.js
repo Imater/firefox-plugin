@@ -21,6 +21,8 @@ const translations = {
     'settings.tabs': 'Tab Management',
     'settings.open_current_tab': 'Open links in current tab',
     'settings.single_tab': 'Single tab mode (close others)',
+    'settings.record_visit_history': 'Record visit history',
+    'settings.record_visit_history_help': 'When off, new visits are not added; saved entries remain.',
     'settings.pomodoro': 'Pomodoro Timer',
     'settings.pomodoro_minutes': 'Pomodoro duration (minutes)',
     'settings.pomodoro_help': 'Standard pomodoro time (usually 25 minutes)',
@@ -69,8 +71,7 @@ const translations = {
     // Languages
     'lang.russian': 'Русский',
     'lang.english': 'English',
-    'lang.chinese': '中文',
-    
+
     // Days of week (short)
     'day.sun': 'Sun',
     'day.mon': 'Mon',
@@ -135,6 +136,8 @@ const translations = {
     'settings.tabs': 'Управление вкладками',
     'settings.open_current_tab': 'Открывать ссылки в текущей вкладке',
     'settings.single_tab': 'Только одна вкладка (закрывать остальные)',
+    'settings.record_visit_history': 'Записывать историю посещений',
+    'settings.record_visit_history_help': 'Если выключено, новые страницы в историю не попадают; сохранённые записи остаются.',
     'settings.pomodoro': 'Таймер Помодорро',
     'settings.pomodoro_minutes': 'Продолжительность помодорро (минуты)',
     'settings.pomodoro_help': 'Стандартное время помодорро (обычно 25 минут)',
@@ -183,8 +186,7 @@ const translations = {
     // Languages
     'lang.russian': 'Русский',
     'lang.english': 'Английский',
-    'lang.chinese': 'Китайский',
-    
+
     // Days of week (short)
     'day.sun': 'вс',
     'day.mon': 'пн',
@@ -227,120 +229,6 @@ const translations = {
     
     // Navigation
     'nav.home': 'Главная',
-  },
-  
-  zh: {
-    // Header
-    'header.refresh': '刷新',
-    'header.settings': '设置',
-    'header.edit': '编辑',
-    'header.close_tabs': '关闭所有标签页',
-    'header.hotkeys_on': '快捷键：开',
-    'header.hotkeys_off': '快捷键：关',
-    
-    // Settings
-    'settings.title': '设置',
-    'settings.general': '常规设置',
-    'settings.appearance': '外观',
-    'settings.language': '语言',
-    'settings.dark_mode': '暗黑模式',
-    'settings.hotkeys': '启用快捷键',
-    'settings.letters_only': '仅字母快捷键',
-    'settings.tabs': '标签页管理',
-    'settings.open_current_tab': '在当前标签页中打开链接',
-    'settings.single_tab': '单标签页模式（关闭其他）',
-    'settings.pomodoro': '番茄钟',
-    'settings.pomodoro_minutes': '番茄钟时长（分钟）',
-    'settings.pomodoro_help': '标准番茄钟时间（通常25分钟）',
-    'settings.api': 'API 设置',
-    'settings.api_url': 'API URL',
-    'settings.api_url_help': 'API 基础 URL（例如：http://127.0.0.1:27123/vault）',
-    'settings.api_key': 'API 密钥',
-    'settings.api_key_help': '用于授权的 Bearer 令牌',
-    'settings.periodic_api_url': '定期笔记 API URL',
-    'settings.periodic_api_help': '定期笔记 API URL（例如：http://127.0.0.1:27124）',
-    'settings.tab_refresh': '标签页刷新时间（分钟）',
-    'settings.tab_refresh_help': '如果超过指定时间未访问，标签页将被刷新',
-    'settings.week_start': '周开始于',
-    'settings.week_start_help': '选择周应该从哪一天开始',
-    'settings.save': '保存',
-    
-    // Daily Notes Panel
-    'daily.yesterday': '昨天',
-    'daily.today': '今天',
-    'daily.tomorrow': '明天',
-    'daily.notes': '每日笔记',
-    'daily.edit': '编辑',
-    'daily.save': '保存',
-    'daily.cancel': '取消',
-    'daily.saving': '保存中...',
-    'daily.placeholder': '开始写您的每日笔记...',
-    'daily.show_calendar': '显示日历',
-    'daily.hide_calendar': '隐藏日历',
-    
-    // Calendar
-    'calendar.loading': '加载笔记中...',
-    'calendar.no_note': '无笔记',
-    'calendar.note_preview': '笔记预览：',
-    
-    // Footer
-    'footer.toggle_daily': '切换每日笔记',
-    
-    // API Warning
-    'api.warning.title': '插件正常工作需要运行 Obsidian',
-    'api.warning.step1': '1. 安装插件',
-    'api.warning.step2': '2. 在您的 Obsidian 库中创建文件夹 **bookmarks** 和文件 **index.md**',
-    'api.warning.step3': '3. 确保 Obsidian 正在运行且插件已激活',
-    'api.warning.retry': '重试',
-    'api.warning.error': '错误：',
-    
-    // Languages
-    'lang.russian': '俄语',
-    'lang.english': '英语',
-    'lang.chinese': '中文',
-    
-    // Days of week (short)
-    'day.sun': '日',
-    'day.mon': '一',
-    'day.tue': '二',
-    'day.wed': '三',
-    'day.thu': '四',
-    'day.fri': '五',
-    'day.sat': '六',
-    
-    // Days of week (full)
-    'day.sunday': '星期日',
-    'day.monday': '星期一',
-    'day.tuesday': '星期二',
-    'day.wednesday': '星期三',
-    'day.thursday': '星期四',
-    'day.friday': '星期五',
-    'day.saturday': '星期六',
-    
-    // Months
-    'month.jan': '一月',
-    'month.feb': '二月',
-    'month.mar': '三月',
-    'month.apr': '四月',
-    'month.may': '五月',
-    'month.jun': '六月',
-    'month.jul': '七月',
-    'month.aug': '八月',
-    'month.sep': '九月',
-    'month.oct': '十月',
-    'month.nov': '十一月',
-    'month.dec': '十二月',
-    
-    // Messages
-    'msg.saved_success': '保存成功！',
-    'msg.save_error': '保存错误：',
-    'msg.task_not_found': '在最近30天内未找到任务',
-    'msg.obsidian_api_working': 'Obsidian API 工作正常',
-    'msg.file_not_found': '在 Obsidian 中未找到文件 bookmarks/index.md',
-    'msg.invalid_api_key': 'API 密钥无效',
-    
-    // Navigation
-    'nav.home': '首页',
   }
 };
 
@@ -372,8 +260,12 @@ export const getCurrentLanguage = () => currentLanguage;
 export const loadLanguage = async () => {
   try {
     const result = await chrome.storage.local.get(['language']);
-    if (result.language && translations[result.language]) {
-      currentLanguage = result.language;
+    const lang = result.language;
+    if (lang && translations[lang]) {
+      currentLanguage = lang;
+    } else if (lang) {
+      currentLanguage = 'en';
+      await chrome.storage.local.set({ language: 'en' });
     }
   } catch (error) {
     console.error('Error loading language:', error);
@@ -386,7 +278,6 @@ export const getAvailableLanguages = () => {
   return [
     { code: 'en', name: 'English' },
     { code: 'ru', name: 'Русский' },
-    { code: 'zh', name: '中文' }
   ];
 };
 

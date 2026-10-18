@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const SUPPORTED_LANGUAGES = ['en', 'ru'];
+
 export const useSettings = () => {
   const [settings, setSettings] = useState({
     tabRefreshMinutes: 8 * 60,
@@ -12,6 +14,7 @@ export const useSettings = () => {
     lettersOnlyHotkeys: false,
     openInCurrentTab: false,
     singleTabMode: false,
+    recordVisitHistory: true,
     language: 'en', // По умолчанию английский
     weekStart: 1, // По умолчанию понедельник (1)
   });
@@ -28,10 +31,16 @@ export const useSettings = () => {
       'lettersOnlyHotkeys',
       'openInCurrentTab',
       'singleTabMode',
+      'recordVisitHistory',
       'language',
       'weekStart',
       'lastOpenedPage'
     ]);
+    const rawLang = result.language || 'en';
+    const language = SUPPORTED_LANGUAGES.includes(rawLang) ? rawLang : 'en';
+    if (rawLang !== language) {
+      await chrome.storage.local.set({ language });
+    }
     setSettings({
       tabRefreshMinutes: result.tabRefreshMinutes || 15,
       useApi: result.useApi !== false, // По умолчанию true
@@ -43,7 +52,8 @@ export const useSettings = () => {
       lettersOnlyHotkeys: result.lettersOnlyHotkeys === true, // По умолчанию false
       openInCurrentTab: result.openInCurrentTab === true, // По умолчанию false
       singleTabMode: result.singleTabMode === true, // По умолчанию false
-      language: result.language || 'en', // По умолчанию английский
+      recordVisitHistory: result.recordVisitHistory !== false,
+      language,
       weekStart: result.weekStart || 1, // По умолчанию понедельник (1)
     });
   };
@@ -60,6 +70,7 @@ export const useSettings = () => {
       lettersOnlyHotkeys: settings.lettersOnlyHotkeys,
       openInCurrentTab: settings.openInCurrentTab,
       singleTabMode: settings.singleTabMode,
+      recordVisitHistory: settings.recordVisitHistory,
       language: settings.language,
       weekStart: settings.weekStart,
     });

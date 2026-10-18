@@ -908,11 +908,7 @@ const DailyNotesPanel = ({
             />
             )
           ) : (
-            <HistoryPanel 
-              currentDate={currentDate}
-              onDateChange={onDateChange}
-              isVisible={activeTab === 'history'}
-            />
+            <HistoryPanel isVisible={activeTab === 'history'} />
           )}
         </ContentContainer>
       </MainContent>
